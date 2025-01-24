@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react'; // Step 1: Import useRef
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import AppBar from '@mui/material/AppBar';
@@ -40,8 +40,19 @@ import { useNavigate } from 'react-router-dom';
 import { set } from 'mongoose';
 import Container from '@mui/material/Container';
 import Paper from '@mui/material/Paper';
+import { colors } from '@mui/material';
+import {Login } from './Login';
+import {Signup } from './Signup';
+import { useContext } from 'react';
 
+import { ThemeProvider, createTheme, useColorScheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 
+const theme = createTheme({
+  colorSchemes: {
+    dark: true,
+  },
+});
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,22 +64,24 @@ function App() {
 
 
   return (
-    <Router>
-      <Routes>
-        <Route 
-          path="/" 
-          element={
-            isAuthenticated ? 
-            <MainApp username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} /> : 
-            <Navigate to="/signup" />
-          } 
-        />
-        {console.log('chatGroupID is : ', currentChatGroupId)} 
-       
-        <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
-        <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
-      </Routes>
-    </Router>
+    
+      <Router>
+        <Routes>
+          <Route 
+            path="/" 
+            element={
+              isAuthenticated ? 
+              <MainApp username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} /> : 
+              <Navigate to="/signup" />
+            } 
+          />
+          {console.log('chatGroupID is : ', currentChatGroupId)} 
+         
+          <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
+          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
+        </Routes>
+      </Router>
+
   );
 }
 
@@ -80,11 +93,29 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     right: false,
   });
   const [model, setModel] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [dotCount, setDotCount] = useState(0); // New state for dots
+  const messagesEndRef = useRef(null); // Step 2: Define ref
+
+  // Add useEffect to handle dot animation
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      interval = setInterval(() => {
+        setDotCount((prev) => (prev < 5 ? prev + 1 : 0));
+      }, 500);
+    } else {
+      setDotCount(0);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const [chat, setChat] = useState(false);
-
+  const isBrowserDefaultDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const [themeMode, setThemeMode] = useState(isBrowserDefaultDark() ? 'dark' : 'light');
+  const [loader, setLoader] = useState(false);
+  
   {console.log('chatGroupID is : ', currentChatGroupId)} 
   if(chatGroups.length === 0) {
     const loadChatGroups = async () => {
@@ -129,9 +160,12 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     }
   }, [currentChatGroupId]);
 
-  const handleThemeChange = (event) => {
-    setDarkMode(event.target.checked);
-  };
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' }); // Step 4: Scroll to bottom
+    }
+  }, [messages, loading]); // Dependencies include messages and loading
+
   const handleChange = (event) => {
    
     setModel(event.target.value);
@@ -146,6 +180,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         setMessages([...messages, userMessage]);
         setChat(true);
         setInputValue('');
+        setLoading(true); // Start loading
 
         try {
           const response = await axios.post('/api/chat', {
@@ -158,17 +193,14 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           console.error('Error fetching AI response:', error);
           const errorMessage = { text: 'Error fetching response from AI.', sender: 'ai' };
           setMessages((prevMessages) => [...prevMessages, errorMessage]);
+        } finally {
+          setLoading(false); // Stop loading
         }
       }
     }
   };
 
-  const colorStyles = {
-    background: darkMode ? "black" : "white",
-    text: darkMode ? "white" : "black",
-    secondaryText: darkMode ? "lightgray" : "gray",
-    borderColor: darkMode ? "darkgray" : "lightgray",
-  };
+  
 
 
   const toggleDrawer = (anchor, open) => (event) => {
@@ -202,12 +234,10 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     <>
       <Button
         variant="contained"
-        startIcon={<AddIcon />}
+        startIcon={<AddIcon/>}
         onClick={createNewChat}
         sx={{
-          bgcolor: colorStyles.background,
-          color: colorStyles.secondaryText,
-          border: `1px solid ${colorStyles.borderColor}`,
+          border: '1px solid',
           borderRadius: '50px',
           textTransform: 'none',
           fontSize: '16px',
@@ -218,7 +248,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
       >
         New Chat
       </Button>
-      <Divider sx={{ bgcolor: colorStyles.borderColor, mt: 2 }} />
+      <Divider sx={{  mt: 2 }} />
       <List sx={{ width: '100%', mt: 2 }}>
         {chatGroups.map((group, index) => (
           <ListItem 
@@ -236,7 +266,6 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               <ListItemText 
                 primary={`Chat ${index + 1}`}
                 sx={{ 
-                  color: colorStyles.text,
                   pl: 2,
                 }} 
               />
@@ -255,36 +284,36 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             <ListItemButton>
               <ListItemText
                 primary={text}
-                sx={{ color: colorStyles.text }} // Change text color
+                
               />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
       <Divider
-        sx={{ bgcolor: colorStyles.borderColor }} // Change divider color
+      
       />
       <FormGroup>
         <FormControlLabel
           control={
             <Switch
-              checked={darkMode}
-              onChange={handleThemeChange}
+              checked={themeMode === 'dark'}
+              onChange={event => setThemeMode(event.target.checked ? 'dark' : 'light')}
               color="default"
             />
           }
           label="Dark"
-          sx={{ color: colorStyles.text }} // Change label color
+        // Change label color
         />
       </FormGroup>
       <Divider
-        sx={{ bgcolor: colorStyles.borderColor }} // Change divider color
+        
       />
       <Box sx={{ minWidth: 40, mt: 2, ml: 2 }}>
       <FormControl fullWidth>
         <InputLabel
           id="demo-simple-select-label"
-          sx={{ color: colorStyles.secondaryText }} // Change label color
+          
         >
           Model
         </InputLabel>
@@ -294,18 +323,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           value={model}
           label="Model"
           onChange={handleChange}
-          sx={{
-            color: colorStyles.text, // Change select text color
-            '.MuiOutlinedInput-notchedOutline': {
-              borderColor: colorStyles.borderColor, // Change border color
-            },
-            '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: colorStyles.secondaryText, // Change border color on hover
-            },
-            '.MuiSvgIcon-root': {
-              color: colorStyles.secondaryText, // Change dropdown icon color
-            },
-          }}
+          
         >
           
           <MenuItem value={'gpt-4'}> gpt-4 </MenuItem>
@@ -323,7 +341,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     <Box
       sx={{
         width: anchor === 'left' || anchor === 'right' ? 250 : 'auto',
-        bgcolor: colorStyles.background, // Set background color
+        
         height: "100%",
       }}
       role="presentation"
@@ -351,9 +369,9 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+              
+              
+              border: `1px solid`, // Card border
             }}
           >
             <CardActionArea>
@@ -362,13 +380,13 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
                   gutterBottom
                   variant="h5"
                   component="div"
-                  sx={{ color: colorStyles.text }}
+                 
                 >
                   Capabilities
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
+                 
                 >
                   Remembers what you've said and uses it to generate responses
                 </Typography>
@@ -382,9 +400,8 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+             
+              border: `1px solid `, // Card border
             }}
           >
             <CardActionArea>
@@ -393,13 +410,13 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
                   gutterBottom
                   variant="h5"
                   component="div"
-                  sx={{ color: colorStyles.text }}
+                  
                 >
                   Limitations
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
+                  
                 >
                   May not always provide accurate or relevant responses
                 </Typography>
@@ -413,9 +430,8 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+              
+              border: `1px solid `, // Card border
             }}
           >
             <CardActionArea>
@@ -423,7 +439,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
+                 
                 >
                   Allows users to provide follow-up connections
                 </Typography>
@@ -437,9 +453,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+              border: `1px solid `, // Card border
             }}
           >
             <CardActionArea>
@@ -447,7 +461,6 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
                 >
                  May occasionally provide harmfun or biased responses
                 </Typography>
@@ -461,9 +474,8 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+              
+              border: `1px solid `, // Card border
             }}
           >
             <CardActionArea>
@@ -471,7 +483,6 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
                 >
                   trained to decline to provide information on inappropriate topics
                 </Typography>
@@ -485,9 +496,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
               mt: 2,
               mr: 3,
               borderRadius: "16px",
-              bgcolor: colorStyles.background, // Card background
-              color: colorStyles.text, // Card text
-              border: `1px solid ${colorStyles.borderColor}`, // Card border
+              border: `1px solid `, // Card border
             }}
           >
             <CardActionArea>
@@ -495,9 +504,9 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             
                 <Typography
                   variant="body2"
-                  sx={{ color: colorStyles.secondaryText }}
+                  
                 >
-                  Limited knowlegde of the world after 2024
+                  Limited knowlegde of the world after Oct 2024
                 </Typography>
               </CardContent>
             </CardActionArea>
@@ -511,6 +520,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
       sx={{
         display: 'flex',
         justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+     
         mb: 2,
         px: 2,
       }}
@@ -518,9 +528,8 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
       <Box
         sx={{
           width: message.sender === 'user' ? '70%' : '100%', // Full width for AI messages
-          backgroundColor:  colorStyles.background,
-          color: colorStyles.text,
-          border: `1px solid ${colorStyles.borderColor}`,
+        
+          border: `1px solid `,
           borderRadius: '15px',
           padding: '10px 15px',
           wordWrap: 'break-word',
@@ -535,15 +544,49 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   const chatContent = () => (
     <Box
       sx={{
-        height: 'calc(100vh - 200px)',
+        height: 'calc(100vh)',
         overflow: 'auto',
         marginTop: '80px',
         paddingBottom: '80px',
       }}
     >
       {messages.map((message, index) => (
-        <ChatMessage key={index} message={message} />
+
+        <> 
+        
+        <ChatMessage key={index} message={message} /> 
+        
+        
+        </>
+        
       ))}
+
+{loading? <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+     
+        mb: 2,
+        px: 2,
+      }}
+    >
+      <Box
+        sx={{
+          width: '15%', // Full width for AI messages
+        
+          border: `1px solid `,
+          borderRadius: '15px',
+          padding: '10px 15px',
+          wordWrap: 'break-word',
+        }}
+      >
+        <Typography> Loading <span style={{ color: themeMode === 'dark' ? '#bbb' : '#777' }}>
+                {'.'.repeat(dotCount)}
+              </span></Typography>
+      </Box>
+    </Box> : null}
+    
+    <div ref={messagesEndRef} /> {/* Step 3: Attach ref */}
     </Box>
   );
 
@@ -554,9 +597,43 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   };
 
   return (
+    <ThemeProvider
+      theme={createTheme({
+        palette: { mode: themeMode },
+        components: {
+          MuiIconButton: {
+            styleOverrides: {
+              root: {
+                color: themeMode === 'dark' ? '#fff' : '#000',
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                color: themeMode === 'dark' ? '#fff' : '#000',
+                backgroundColor: themeMode === 'dark' ? '#444' : '#fff',
+                '&:hover': {
+                  backgroundColor: themeMode === 'dark' ? '#333' : '#f5f5f5',
+                },
+              },
+            },
+          },
+          MuiAppBar: {
+            styleOverrides: {
+              root: {
+                backgroundColor: themeMode === 'dark' ? '#333' : '#fff',
+              },
+            },
+          },
+         
+        },
+      })}
+    >
+      <CssBaseline />
     <Box sx={{ 
       width: getMainWidth(),
-      bgcolor: colorStyles.background, 
+      
       height: "100vh",
       ml: state.left ? "250px" : 0,
       mr: state.right ? "250px" : 0,
@@ -566,8 +643,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         position="fixed"
         sx={{
           width: getMainWidth(),
-          bgcolor: colorStyles.background,
-          color: colorStyles.text,
+          
           transition: "all 0.3s ease",
           ml: state.left ? "250px" : 0,
           mr: state.right ? "250px" : 0,
@@ -578,7 +654,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             size="large"
             edge="start"
             aria-label="menu"
-            sx={{ color: colorStyles.text }} // Menu icon color
+            
             onClick={
               state.left ? toggleDrawer("left", false) : toggleDrawer("left", true)
             }
@@ -588,7 +664,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           <Typography
             variant="h8"
             component="div"
-            sx={{ color: colorStyles.text, flex: 2 }}
+            sx={{ flex: 1, color: (themeMode === 'dark' ? 'white' : 'black') }} // Title color
           >
             LLM Analyzer
           </Typography>
@@ -598,13 +674,13 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           <Box sx={{ flex: 1 }}>
             <Button
               startIcon={<HelpOutlineIcon />}
-              sx={{ textTransform: "none", color: colorStyles.secondaryText }} // Help button color
+              sx={{ textTransform: "none" }} // Help button color
             >
               Help
             </Button>
             <Button
               startIcon={<LinkIcon />}
-              sx={{ textTransform: "none", color: colorStyles.secondaryText }} // API button color
+              sx={{ textTransform: "none"}} // API button color
               >
               API
               </Button>
@@ -612,13 +688,13 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
 
 
             <Button
-              sx={{ color: colorStyles.text }}
+              
               startIcon={<AccountCircleIcon />}
             >
               <Typography
               variant="h8"
               component="div"
-              sx={{ color: colorStyles.text }}
+              
               >
               {username || 'User Name'}
               </Typography>
@@ -626,17 +702,17 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             </Toolbar>
           </AppBar>
 
-          {chat ? chatContent() : cardContent()}
+          { chat ? chatContent() : cardContent() }
         
         <Box
         sx={{
           width: "100vh",
           display: "flex",
-          border: `1px solid ${colorStyles.borderColor}`, // Input box border
+          border: `1px solid `, // Input box border
           p: 1,
           borderRadius: "20px",
           mt: 2,
-          bgcolor: colorStyles.background, // Input box background
+          backgroundColor: themeMode === 'dark' ? '#333' : '#fff',
           position: "fixed",
           bottom: 20,
           left: "50%",
@@ -644,11 +720,11 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         }}
       >
           <AttachFileIcon
-            sx={{ color: colorStyles.secondaryText, mt: 2, cursor: "pointer" }}
+            sx={{ mt: 2, cursor: "pointer" }}
           />
           <ImageIcon
             sx={{
-              color: colorStyles.secondaryText,
+              
               mt: 2,
               mr: 1,
               cursor: "pointer",
@@ -670,8 +746,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             helperText={inputValue.length > 500 ? 'Character limit has been reached' : ''}
             sx={{
               flex: 1,
-              input: { color: colorStyles.text }, // TextField input color
-              label: { color: colorStyles.secondaryText }, // TextField label color
+              
             }}
           />
           <IconButton
@@ -683,7 +758,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
             sx={{ mt: 2, ml: 1 }}
           >
             <SettingsIcon
-              sx={{ color: colorStyles.secondaryText, cursor: "pointer" }}
+              sx={{  cursor: "pointer" }}
             />
           </IconButton>
         
@@ -714,204 +789,15 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
       >
         {drawerContent("right")}
       </Drawer>
-    </Box>
-  );
-}
-
-
-function Login( { setIsAuthenticated, setUsername, setCurrentChatGroupId })  {
-  
-  
- 
-
-  const handleRegistration = async (data) => {
-   
-
-    try {
-      const response = await axios.post('/api/login', { 
-        username: data.username,
-        password: data.password,  
-      
-
-      });
-      if(response.data.message === 'Login successful') {
-        console.log('Login successful:   ', response.data.message);
-        setIsAuthenticated(true);
-        setUsername(response.data.username);
-        setCurrentChatGroupId(response.data.chatGroupId);
-      }
-      
-      // Handle successful login, e.g., save token and redirect
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
-
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-    } = useForm({ mode: "onChange" });
-
-
-
-    const handleError = (errors) => { };
-
-    const registerOptions = {
-        username: { required: "Username cannot be blank" },
-        password: {
-            required: "Password is required",
-            minLength: {
-                value: 6,
-                message: "Password must be at least 6 characters",
-            },
-        }
-    };
-
-   
-  
-  return (
-    <Container maxWidth="sm" sx={{ mt: 8 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          Login
-        </Typography>
-        <form onSubmit={handleSubmit(handleRegistration, handleError)}>
-                <TextField
-                    id="username-input"
-                    placeholder="username"
-                    label="Username"
-                    variant="outlined"
-                    {...register("username", registerOptions.username)}
-                    error={!!errors.username}
-                    helperText={errors?.username?.message}
-                />
-
-                <TextField
-                    id="password-input"
-                    type="password"
-                    placeholder="Password"
-                    label="Password"
-                    variant="outlined"
-                    {...register("password", registerOptions.password)}
-                    error={!!errors.password}
-                    helperText={errors?.password?.message}
-                />
-
-                <Button type="submit" variant="contained" color="primary">
-                    Login
-                </Button>
-
-            </form>
-      </Paper>
-    </Container>
+      </Box>
+    </ThemeProvider>
   );
 }
 
 
 
 
-function Signup( { setIsAuthenticated, setUsername, setCurrentChatGroupId } ) {
 
-  const handleRegistration = async (data) => {
-    try {
-      // Send the form data to the `/api/signup` endpoint
-      const response = await axios.post('/api/signup', {
-        username: data.username,
-        password: data.password,
-      });
-  
-      if (response.data.message === 'Registration successful') {
-        console.log('Registration successful:', response.data.message);
-        setIsAuthenticated(true);
-        setUsername(response.data.username);
-        setCurrentChatGroupId(response.data.chatGroupId);
-        // You can redirect the user to the login page or automatically log them in
-        
-      }
-    } catch (error) {
-      console.error('Registration failed:', error);
-    }
-  };
-
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        watch,
-    } = useForm({ mode: "onChange" });
-
-
-
-    const handleError = (errors) => { };
-
-    const registerOptions = {
-        username: { required: "Username cannot be blank" },
-        password: {
-            required: "Password is required",
-            minLength: {
-                value: 6,
-                message: "Password must be at least 6 characters",
-            },
-        },
-        confirmPassword: {
-            required: "Confirm Password is required",
-            validate: value =>
-                value === watch('password') || "The passwords do not match",
-        },
-    };
-
-    return (
-        <Container maxWidth="sm" sx={{ mt: 8 }}>
-          <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h4" align="center" gutterBottom>
-              Sign Up
-            </Typography>
-            <form onSubmit={handleSubmit(handleRegistration, handleError)}>
-                <TextField
-                    id="username-input"
-                    placeholder="username"
-                    label="Username"
-                    variant="outlined"
-                    {...register("username", registerOptions.username)}
-                    error={!!errors.username}
-                    helperText={errors?.username?.message}
-                />
-
-                <TextField
-                    id="password-input"
-                    type="password"
-                    placeholder="Password"
-                    label="Password"
-                    variant="outlined"
-                    {...register("password", registerOptions.password)}
-                    error={!!errors.password}
-                    helperText={errors?.password?.message}
-                />
-
-                <TextField
-                    id="confirm-password-input"
-                    type="password"
-                    placeholder="Confirm Password"
-                    label="Confirm Password"
-                    variant="outlined"
-                    {...register("confirmPassword", registerOptions.confirmPassword)}
-                    error={!!errors.confirmPassword}
-                    helperText={errors?.confirmPassword?.message}
-                />
-                <Button type="submit" variant="contained" color="primary">
-                    Register
-                </Button>
-
-            </form>
-            <Typography sx={{ mt: 2, textAlign: 'center', width: '100%' }}>
-                Already have an account?{' '}
-                <Link href="\login"> Login </Link>
-            </Typography>
-          </Paper>
-        </Container>
-    );
-}
 
 
 
