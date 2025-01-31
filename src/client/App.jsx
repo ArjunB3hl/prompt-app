@@ -44,6 +44,9 @@ import { colors } from '@mui/material';
 import {Login } from './Login';
 import {Signup } from './Signup';
 import { useContext } from 'react';
+import Chip from '@mui/material/Chip';
+import CloseIcon from '@mui/icons-material/Close';
+
 
 import { ThemeProvider, createTheme, useColorScheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -94,22 +97,55 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   });
   const [model, setModel] = useState('');
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(false);
   const [dotCount, setDotCount] = useState(0); // New state for dots
   const messagesEndRef = useRef(null); // Step 2: Define ref
+  const [selectedFile, setSelectedFile] = useState(null); // new state
+  
 
-  // Add useEffect to handle dot animation
-  useEffect(() => {
-    let interval;
-    if (loading) {
-      interval = setInterval(() => {
-        setDotCount((prev) => (prev < 5 ? prev + 1 : 0));
-      }, 500);
-    } else {
-      setDotCount(0);
+  const fileInputRef = useRef(null); // ref for hidden file input
+ 
+  const handleFileAttachClick = async () => {
+    fileInputRef.current.click();
+   
+
+  };
+  const [fileName, setFileName] = useState(null);
+  const handleFileChange = async (event) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const file = event.target.files[0];
+      setSelectedFile(file);
+  
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('chatGroupId', currentChatGroupId);
+  
+      try {
+        const response = await axios.post(`/api/upload/${currentChatGroupId}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        console.log('File uploaded:', response.data.filename);
+        setFileName(response.data.filename);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      }
     }
-    return () => clearInterval(interval);
-  }, [loading]);
+  };
+
+
+
+  const handleFileDelete = async () => {
+    setSelectedFile(null);
+    try {
+      const response = await axios.delete(`/api/delete-file/${currentChatGroupId}/${fileName}`);
+      console.log('File deleted:', response.data.filename);
+    } catch (error) {
+      console.error('Error deleting file:', error);
+    }
+
+  };
+  
 
   const [chat, setChat] = useState(false);
   const isBrowserDefaultDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -132,6 +168,11 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
    
 
 }
+
+
+
+
+ 
   
   useEffect(() => {
     // Load chats for current chat group
@@ -147,8 +188,9 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           setChat(true);
         }
         setMessages(response.data.map(chat => ([
-          { text: chat.prompt, sender: 'user' },
-          { text: chat.response, sender: 'ai' }
+          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName } : { text: chat.UserMessage, sender: 'user' },
+          { text: chat.AIMessage, sender: 'ai' },
+         
         ])).flat());
       } catch (error) {
         console.error('Error loading chats:', error);
@@ -164,7 +206,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' }); // Step 4: Scroll to bottom
     }
-  }, [messages, loading]); // Dependencies include messages and loading
+  }, [messages]); // Dependencies include messages and loading
 
   const handleChange = (event) => {
    
@@ -176,25 +218,56 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       if (inputValue.trim() && inputValue.length <= 500) {
-        const userMessage = { text: inputValue, sender: 'user' };
+        const userMessage = selectedFile ? { text: inputValue, sender: 'user', file: selectedFile.name } : { text: inputValue, sender: 'user' };
         setMessages([...messages, userMessage]);
         setChat(true);
         setInputValue('');
-        setLoading(true); // Start loading
-
+        setSelectedFile(null);
+       
+  
         try {
-          const response = await axios.post('/api/chat', {
-            prompt: inputValue,
-            model: model || 'gpt-3.5-turbo',
-          });
-          const aiMessage = { text: response.data.choices[0].message.content, sender: 'ai' };
-          setMessages((prevMessages) => [...prevMessages, aiMessage]);
+          // Create an EventSource to listen for streaming responses
+          
+          const eventSource = new EventSource(
+            `/api/chat?prompt=${encodeURIComponent(inputValue)}&model=${model || "gpt-3.5-turbo"}`
+          );
+  
+          eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data === '[DONE]') {
+              // Close the connection when the stream is complete
+              eventSource.close();
+              
+            }
+            if (data.content) {
+              // Append the chunk to the messages
+              setMessages((prevMessages) => {
+                const lastMessage = prevMessages[prevMessages.length - 1];
+                if (lastMessage && lastMessage.sender === 'ai') {
+                  // Update the last AI message
+                  return [
+                    ...prevMessages.slice(0, -1),
+                    { text: lastMessage.text + data.content, sender: 'ai' },
+                  ];
+                } else {
+                  // Add a new AI message
+                  return [...prevMessages, { text: data.content, sender: 'ai' }];
+                }
+              });
+            } 
+          };
+  
+          eventSource.onerror = (error) => {
+            console.error('Error in EventSource:', error);
+            eventSource.close();
+            
+          };
         } catch (error) {
           console.error('Error fetching AI response:', error);
           const errorMessage = { text: 'Error fetching response from AI.', sender: 'ai' };
           setMessages((prevMessages) => [...prevMessages, errorMessage]);
-        } finally {
-          setLoading(false); // Stop loading
+         
         }
       }
     }
@@ -340,7 +413,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   const drawerContent = (anchor) => (
     <Box
       sx={{
-        width: anchor === 'left' || anchor === 'right' ? 250 : 'auto',
+        width: anchor === 'left' || anchor === 'right' ? 200 : 'auto',
         
         height: "100%",
       }}
@@ -516,8 +589,10 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
 
   // Modify ChatMessage component for full width response box
   const ChatMessage = ({ message }) => (
-    <Box
+    
+    <Box 
       sx={{
+        width: '65vw',
         display: 'flex',
         justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
      
@@ -525,18 +600,52 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         px: 2,
       }}
     >
-      <Box
+      {message.file? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '70%' }}>
+        {/* File Name */}
+        <Box
+          sx={{
+            width: 'fit-content',
+            border: `1px solid `,
+            borderRadius: '15px',
+            padding: '3px 5px',
+            wordWrap: 'break-word',
+          }}
+        >
+          <Typography sx={{ fontSize: '0.75rem' }}>{message.file}</Typography>
+        </Box>
+      
+        {/* Text Message - Allow full width */}
+        <Box
+          sx={{
+            width: 'fit-content', 
+            border: `1px solid `,
+            borderRadius: '15px',
+            padding: '10px 15px',
+            wordWrap: 'break-word',
+          }}
+        >
+          <Typography>{message.text}</Typography>
+        </Box>
+      </Box>
+
+
+      ): (<Box
         sx={{
-          width: message.sender === 'user' ? '70%' : '100%', // Full width for AI messages
+          width: 'fit-content', // Full width for AI messages
         
           border: `1px solid `,
           borderRadius: '15px',
           padding: '10px 15px',
           wordWrap: 'break-word',
+          maxWidth: message.sender === 'user' ? '70%' : '100%',
         }}
       >
         <Typography>{message.text}</Typography>
       </Box>
+
+      )}
+      
     </Box>
   );
 
@@ -544,10 +653,15 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   const chatContent = () => (
     <Box
       sx={{
-        height: 'calc(100vh)',
-        overflow: 'auto',
-        marginTop: '80px',
-        paddingBottom: '80px',
+        // Full width for AI messages
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        
+        overflowY: 'auto', // Only show scrollbar when needed
+        marginTop: '100px',
+        paddingBottom: '190px', // Adjust to match input box height
+      
       }}
     >
       {messages.map((message, index) => (
@@ -560,40 +674,25 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         </>
         
       ))}
-
-{loading? <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'flex-start',
-     
-        mb: 2,
-        px: 2,
-      }}
-    >
-      <Box
-        sx={{
-          width: '15%', // Full width for AI messages
-        
-          border: `1px solid `,
-          borderRadius: '15px',
-          padding: '10px 15px',
-          wordWrap: 'break-word',
-        }}
-      >
-        <Typography> Loading <span style={{ color: themeMode === 'dark' ? '#bbb' : '#777' }}>
-                {'.'.repeat(dotCount)}
-              </span></Typography>
-      </Box>
-    </Box> : null}
     
     <div ref={messagesEndRef} /> {/* Step 3: Attach ref */}
     </Box>
   );
 
   const getMainWidth = () => {
-    if (state.left && state.right) return "calc(100% - 500px)";
-    if (state.left || state.right) return "calc(100% - 250px)";
+    if (state.left && state.right) return "calc(100% - 400px)";
+    if (state.left || state.right) return "calc(100% - 200px)";
     return "100%";
+  };
+
+  const handleImageClick = async () => {
+    try {
+      const response = await axios.get(`/api/image/${currentChatGroupId}`);
+      console.log('Image response:', response.data);
+      // ...handle the data from the API as needed...
+    } catch (error) {
+      console.error('Error fetching image:', error);
+    }
   };
 
   return (
@@ -632,12 +731,10 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
     >
       <CssBaseline />
     <Box sx={{ 
-      width: getMainWidth(),
-      
-      height: "100vh",
-      ml: state.left ? "250px" : 0,
-      mr: state.right ? "250px" : 0,
-      transition: "all 0.3s ease",
+      width: '100%',
+  
+      height: 'calc(100vh - 200px)',
+    
     }}>
       <AppBar
         position="fixed"
@@ -645,8 +742,8 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           width: getMainWidth(),
           
           transition: "all 0.3s ease",
-          ml: state.left ? "250px" : 0,
-          mr: state.right ? "250px" : 0,
+          ml: state.left ? "200px" : 0,
+          mr: state.right ? "200px" : 0,
         }}
       >
         <Toolbar>
@@ -704,74 +801,79 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
 
           { chat ? chatContent() : cardContent() }
         
-        <Box
-        sx={{
-          width: "100vh",
-          display: "flex",
-          border: `1px solid `, // Input box border
-          p: 1,
-          borderRadius: "20px",
-          mt: 2,
-          backgroundColor: themeMode === 'dark' ? '#333' : '#fff',
-          position: "fixed",
-          bottom: 20,
-          left: "50%",
-          transform: "translateX(-50%)",
-        }}
-      >
-          <AttachFileIcon
-            sx={{ mt: 2, cursor: "pointer" }}
-          />
-          <ImageIcon
-            sx={{
-              
-              mt: 2,
-              mr: 1,
-              cursor: "pointer",
-            }}
-          />
-          <TextField
-            id="input-with-sx"
-            label="Add a prompt"
-            variant="standard"
-            fullWidth
-            multiline
-            maxRows={4}
-            value={inputValue}
-            onChange={(e) => {
-              setInputValue(e.target.value);
-            }}
-            onKeyDown={handleKeyPress}
-            error={inputValue.length > 500}
-            helperText={inputValue.length > 500 ? 'Character limit has been reached' : ''}
-            sx={{
-              flex: 1,
-              
-            }}
-          />
-          <IconButton
-            onClick={
-              state.right
-                ? toggleDrawer("right", false)
-                : toggleDrawer("right", true)
-            }
-            sx={{ mt: 2, ml: 1 }}
-          >
-            <SettingsIcon
-              sx={{  cursor: "pointer" }}
-            />
-          </IconButton>
-        
+          <Box
+  sx={{
+    width: "65vw",
+    display: "flex",
+    flexDirection: "column", // Step 1: column layout
+    border: `1px solid`,
+    p: 1,
+    borderRadius: "20px",
+    mt: 2,
+    backgroundColor: themeMode === 'dark' ? '#333' : '#fff',
+    position: "fixed",
+    bottom: 20,
+    left: "50%",
+    transform: "translateX(-50%)",
+    height: 120, // Step 2: increase height
+  }}
+>
+  {/* If a file is selected, show a Chip on top */}
+  {selectedFile && (
+    <Chip
+      label={selectedFile.name}
+      onDelete={() => handleFileDelete()}
+      deleteIcon={<CloseIcon />}
+      sx={{ mb: 1 }} 
+    />
+  )}
 
+  {/* Step 3: wrap icon & TextField in nested row */}
+  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+    <AttachFileIcon
+      sx={{ mr: 1, cursor: "pointer" }}
+      onClick={handleFileAttachClick}
+    />
+    <input
+      ref={fileInputRef}
+      type="file"
+      style={{ display: 'none' }}
+      onChange={handleFileChange}
+    />
 
+    <ImageIcon sx={{ mr: 2, cursor: "pointer" }} onClick={handleImageClick} />
 
-
-
-
-
-        
-      </Box>
+    <TextField
+      id="input-with-sx"
+      label="Add a prompt"
+      variant="standard"
+      fullWidth
+      multiline
+      maxRows={4}
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+      onKeyDown={handleKeyPress}
+      error={inputValue.length > 500}
+      helperText={inputValue.length > 500 ? 'Character limit has been reached' : ''}
+      sx={{
+        flex: 1,
+      }}
+    />
+    <IconButton
+      onClick={
+        state.right
+          ? toggleDrawer("right", false)
+          : toggleDrawer("right", true)
+      }
+      sx={{ ml: 1 }}
+    >
+      <SettingsIcon sx={{ cursor: "pointer" }} />
+    </IconButton>
+  </Box>
+</Box>
        
+       
+
     
 
 
