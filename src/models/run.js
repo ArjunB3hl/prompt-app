@@ -3,6 +3,10 @@ import { VectorStores } from "openai/resources/beta/vector-stores/vector-stores.
 const Schema = mongoose.Schema;
 
 const RunSchema = new Schema({
+    name :{
+        type: String,
+        required: true,
+    },
     user: {
         type: Schema.Types.ObjectId,
         ref: 'User'
@@ -28,11 +32,21 @@ const RunSchema = new Schema({
             required: false,
             unique: false
         },
+        model:{
+            type: String,
+        },
+       
 
-        messages: [{
+        messages: [
+            
+            {
+        
             type: Schema.Types.ObjectId,
             ref: 'Message'
-        }],
+             }
+    
+    
+    ],
         
     },
    

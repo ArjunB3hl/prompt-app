@@ -17,7 +17,12 @@ const MessageSchema = new Schema({
     AIMessage: { 
         type: String, 
     },
-    images: [ImageSchema],
+    promptTokens: {
+        type: Number,
+    },
+    completionTokens: {
+        type: Number,
+    },
 });
 
 export const MessageModel = mongoose.model('Message', MessageSchema);
