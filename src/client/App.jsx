@@ -95,7 +95,8 @@ function App() {
             path="/" 
             element={
               isAuthenticated ? 
-              <MainApp username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} /> : 
+              <MainApp isAuthenticated={isAuthenticated} 
+              setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} /> : 
               <Navigate to="/signup" />
             } 
           />
@@ -109,7 +110,7 @@ function App() {
   );
 }
 
-function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId}) {
+function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId, setIsAuthenticated }) {
   // Add new state for messages
   const [messages, setMessages] = useState([]);
   const [state, setState] = useState({
@@ -684,6 +685,13 @@ useEffect(() => {
     </>
   );
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    // setUsername('');
+    setCurrentChatGroupId(null);
+    localStorage.removeItem("token"); // Clear any stored tokens if using authentication
+  };
+  
 
   // Content for drawers
   const drawerContent = (anchor) => (
@@ -1189,12 +1197,7 @@ useEffect(() => {
             >
               Help
             </Button>
-            <Button
-              startIcon={<LinkIcon />}
-              sx={{ textTransform: "none"}} // API button color
-              >
-              API
-              </Button>
+          
             </Box>
 
 
@@ -1210,6 +1213,10 @@ useEffect(() => {
               {username || 'User Name'}
               </Typography>
             </Button>
+            <Button onClick={handleLogout} variant="outlined" sx={{ ml: 2 }}>
+  Logout
+</Button>
+
             </Toolbar>
           </AppBar>
 
