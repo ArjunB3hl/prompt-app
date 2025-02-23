@@ -7,8 +7,32 @@ import axios from "axios";
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import { use, useEffect } from "react";
 
-export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId }) {
+
+
+export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId, setImageData }) {
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const response = await axios.get("/api/check-auth");
+        if (response.data.isAuthenticated) {
+          setIsAuthenticated(true);
+          localStorage.setItem("isAuthenticated", true);
+          localStorage.setItem('currentChatGroupId', response.data.chatGroupId);
+          
+          setUsername(response.data.username);
+          console.log("response.data.chatGroupId", response.data.currentChatGroupId);
+          setCurrentChatGroupId(response.data.currentChatGroupId);
+          setImageData(response.data.image);
+         
+        }
+      } catch (error) {
+        console.error("Error loading chatGroups:", error);
+      }
+    }
+    checkAuth();
+  }, []);
   const {
     register,
     handleSubmit,
@@ -115,6 +139,12 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId 
           Already have an account?{" "}
           <Link href="/login" underline="hover">
             Login
+          </Link>
+        </Typography>
+         <Typography sx={{ mt: 2, textAlign: "center", width: "100%" }}>
+          Or sign up with{" "}
+          <Link href="/auth/google" underline="hover">
+            Google
           </Link>
         </Typography>
       </Paper>

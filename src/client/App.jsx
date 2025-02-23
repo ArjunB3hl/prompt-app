@@ -1,75 +1,48 @@
 import React, { useEffect, useRef } from 'react'; // Step 1: Import useRef
 import { useState } from 'react';
 import Box from '@mui/material/Box';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
+
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import LinkIcon from '@mui/icons-material/Link';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import ImageIcon from '@mui/icons-material/Image';
-import SettingsIcon from '@mui/icons-material/Settings';
-import Card from '@mui/material/Card';
-import CardActionArea from '@mui/material/CardActionArea';
-import CardContent from '@mui/material/CardContent';
+
+
+
+
+
 import TextField from '@mui/material/TextField';
-import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
-import Divider from '@mui/material/Divider';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import FormGroup from '@mui/material/FormGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import Select from '@mui/material/Select';
-import AddIcon from '@mui/icons-material/Add';
+
+
 import axios from 'axios'; // Add axios for HTTP requests
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
-import { useForm } from "react-hook-form";
-import Link from '@mui/material/Link';
-import { useNavigate } from 'react-router-dom';
-import { set } from 'mongoose';
-import Container from '@mui/material/Container';
-import Paper from '@mui/material/Paper';
-import { colors } from '@mui/material';
+
+
 import {Login } from './Login';
 import {Signup } from './Signup';
-import { useContext } from 'react';
-import Chip from '@mui/material/Chip';
-import CloseIcon from '@mui/icons-material/Close';
+import { ChartViewer } from './ChartViewer';
+import { RightDrawer } from './RightDrawer';
+import { BottomBar } from './BottomBar';
+
 import CircularProgress from '@mui/material/CircularProgress';
-import Slider from '@mui/material/Slider';
+
 import EditIcon from '@mui/icons-material/Edit';
-import AddchartIcon from '@mui/icons-material/Addchart';
 
-import {
-  Chart,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 
-// Register the components we need
-Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+import ReactMarkdown from 'react-markdown';
 
-import { Line } from 'react-chartjs-2';
+import { CardCont } from './CardCont';
+
+
+
 import { ThemeProvider, createTheme, useColorScheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { dark } from '@mui/material/styles/createPalette';
-import { Messages } from 'openai/resources/beta/threads/messages.mjs';
+import { LeftDrawer } from './LeftDrawer';
+import { Appbar } from './AppBar';
+import { use } from 'react';
+
+
+
 
 
 const theme = createTheme({
@@ -79,11 +52,18 @@ const theme = createTheme({
 });
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
   
   const [username, setUsername] = useState('');
   const [chatGroups, setChatGroups] = useState([]);
-  const [currentChatGroupId, setCurrentChatGroupId] = useState(null);
+  const [currentChatGroupId, setCurrentChatGroupId] = useState(localStorage.getItem('currentChatGroupId'));
+  const [imageData, setImageData] = useState('');
+  
+  
+  
+
+
   
 
 
@@ -96,42 +76,51 @@ function App() {
             element={
               isAuthenticated ? 
               <MainApp isAuthenticated={isAuthenticated} 
-              setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} /> : 
+              setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} imageData={imageData}  />  : 
               <Navigate to="/signup" />
             } 
           />
           {console.log('chatGroupID is : ', currentChatGroupId)} 
          
           <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
-          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
+          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} setImageData={setImageData}/> : <Navigate to="/" />} />
+          <Route path="/charts" element= {(isAuthenticated) ? <ChartViewer chatGroups ={chatGroups}  currentChatGroupId ={currentChatGroupId} /> : <Navigate to="/signup" />} />
+
         </Routes>
+     
       </Router>
 
   );
 }
 
-function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId, setIsAuthenticated }) {
+function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId, setIsAuthenticated, imageData }) {
   // Add new state for messages
-  const [messages, setMessages] = useState([]);
+  
   const [state, setState] = useState({
     left: false,
     right: false,
   });
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('gpt-3.5-turbo');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null); // Step 2: Define ref
   const [selectedFile, setSelectedFile] = useState(null); // new state
-  const [temperature, setTemperature] = useState(0);
   const [leftWidth, setLeftWidth] = useState(200);
   const [resizingLeft, setResizingLeft] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [tokens, setTokens] = useState(0);
-  const [tokenData, setTokenData] = useState(null);
+  
+  const [send, setSend] = useState(false);
+  const [messages, setMessages] = useState([]);
+  
+  
 
+  
 
+useEffect(() => {
+}
+, [inputValue]);  
 
-
-  const fileInputRef = useRef(null); // ref for hidden file input
+ 
 
   const handleEditing = (id) => {
     setMessages((prevMessages) =>
@@ -161,11 +150,12 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
   }
 
   const handleSave = (id, LocalMessage) => {
+    
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
         if (message.id === id && message.sender === 'user') {
           // Return a new object with the updated 'edit' property.
-          return { ...message,text:LocalMessage, edit: false };
+          return { ...message,text:LocalMessage,edit: false };
         }
         else if (message.id === id && message.sender === 'ai') {
           return { ...message, text: '' };
@@ -185,8 +175,17 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         // Check if the message is the "[DONE]" indicator.
         if (event.data === "[DONE]") {
           // Optionally perform any cleanup, then close the connection.
+          setMessages((prevMessages) =>
+            prevMessages.map((message) => {
+              if (message.id === id && message.sender === 'ai') {
+                return { ...message, edit: false };
+              }
+              return message;
+            }
+          ));
           
           eventSource.close();
+          
           return;
         }
         
@@ -203,7 +202,7 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
           setMessages((prevMessages) => 
             prevMessages.map((msg) =>
               msg.id === id && msg.sender === 'ai'
-                ? { ...msg, text: msg.text + data.content, edit: false }
+                ? { ...msg, text: msg.text + data.content }
                 : msg
             )
           );
@@ -216,9 +215,6 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
         eventSource.close();
         
       };
-      
-
-
 
     } catch (error) {
       console.error('Error fetching AI response:', error);
@@ -227,60 +223,22 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
      
     }
 
-
-
-
-
   }
- 
-  const handleFileAttachClick = async () => {
-    fileInputRef.current.click();
-   
-
-  };
-  const [fileName, setFileName] = useState(null);
-  const handleFileChange = async (event) => {
-    if (event.target.files && event.target.files.length > 0) {
-      const file = event.target.files[0];
-      setSelectedFile(file);
   
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('chatGroupId', currentChatGroupId);
-  
-      try {
-        const response = await axios.post(`/api/upload/${currentChatGroupId}`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        console.log('File uploaded:', response.data.filename);
-        setFileName(response.data.filename);
-      } catch (error) {
-        console.error('Error uploading file:', error);
-      }
-    }
-  };
 
 
-
-  const handleFileDelete = async () => {
-    setSelectedFile(null);
-    try {
-      const response = await axios.delete(`/api/delete-file/${currentChatGroupId}/${fileName}`);
-      console.log('File deleted:', response.data.filename);
-    } catch (error) {
-      console.error('Error deleting file:', error);
-    }
-
-  };
-  
 
   const [chat, setChat] = useState(false);
   const isBrowserDefaultDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
   const [themeMode, setThemeMode] = useState(isBrowserDefaultDark() ? 'dark' : 'light');
   const [loader, setLoader] = useState(false);
   const [nameChatGroup, setNameChatGroup] = useState(false); 
+  const eventSourceRef = useRef(null);
+ 
+  const [selectedOption, setSelectedOption] = useState("");
+  const [assistantText, setAssistantText] = useState("");
+  const [toolType, setToolType] = useState("");
+
   
   {console.log('chatGroupID is : ', currentChatGroupId)} 
   if(chatGroups.length === 0) {
@@ -288,6 +246,10 @@ function MainApp({ username, chatGroups, setChatGroups, setCurrentChatGroupId, c
       try {
         const response = await axios.get("/api/check-auth");
         setChatGroups( response.data.chatGroups );
+        if(username === '') {
+          setUsername(response.data.username);
+        };
+
       } catch (error) {
         console.error('Error loading chatGroups:', error);
       }
@@ -355,7 +317,7 @@ useEffect(() => {
 
       }
       catch (error) {
-        onsole.error('Error fetching AI response:', error);
+        console.error('Error fetching AI response:', error);
     
 
       }
@@ -365,7 +327,7 @@ useEffect(() => {
   }
 }, [messages]);
 
-
+ 
 
  
   
@@ -383,8 +345,8 @@ useEffect(() => {
           setChat(true);
         }
         setMessages(response.data.messages.map( (chat, index) => ([
-          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: index, edit: false} : { text: chat.UserMessage, sender: 'user', id: index, edit: false},
-          { text: chat.AIMessage, sender: 'ai', id: index },
+          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false},
+          { text: chat.AIMessage, sender: 'ai', id: chat._id },
          
         ])).flat());
         setModel(response.data.model);
@@ -411,102 +373,229 @@ useEffect(() => {
     }
   }, [messages]);
 
-  useEffect(() => {
-    setTokenData(null);
-  }, [messages]);
+ 
 
-
-  useEffect(() => {
-    setTokenData(null);
-  }, [currentChatGroupId]);
-
-  const handleChange = (event) => {
+  
    
-    setModel(event.target.value);
-  };
+
+
+  
+  useEffect(() => {
+    return () => {
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+        }
+        
+    };
+}, [currentChatGroupId]); // Run this effect when currentChatGroupId changes
+
+ //In the bottom Bar component 
+const handleSendClick = () => {
+    if (send) {
+        // If currently sending, abort the request.
+        if(eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
+        setSend(false); // Update UI state
+        setLoader(false);
+    } else {
+        // If not sending, initiate sending
+        handleKeyPress({ type: 'click' });
+    }
+};
+  
 
   // Modify handleKeyPress to send prompt and model data
   const handleKeyPress = async (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    
+    if  ( (event.type === 'click' || (event.key === 'Enter' && !event.shiftKey)) ) {
+
+      if (event.type === 'keydown') {
       event.preventDefault();
+      }
      
-        try {
-         const response = await axios.post('/api/tokens', { text: inputValue, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId });
-         console.log('estimating :', response.data);
-         setTokens(response.data.estimatedCompletionTokens);
-          
-        }
-        catch (error) {
-          console.error('Error calculating tokens:', error);
-        }
-
-
-
-
-
 
 
       if (inputValue.trim() && inputValue.length <= 500) {
-        const userMessage = selectedFile ? { text: inputValue, sender: 'user', file: selectedFile.name,id: messages[messages.length -1] ? messages[messages.length -1] +1 : 0 , edit: false} : { text: inputValue, sender: 'user', id: messages[messages.length -1] ? messages[messages.length -1] +1 : 0 , edit: false};
-        setMessages([...messages, userMessage]);
-        setChat(true);
+       
+      
+    
+
+        let tempValue = inputValue;
         setInputValue('');
+        setAssistantText('');
+        let userMessage ;
+        if(selectedOption === 'Few Shot prompting'  || selectedOption === 'Chain of Thought prompting' || selectedOption === 'Self Consistency' ) {
+          
+          try{
+            
+            const response = await axios.get(
+              `/api/prompting?prompt=${encodeURIComponent(tempValue)}&technique=${selectedOption}`
+            );
+            const rewrittenPrompt = response.data.content; 
+    
+            userMessage = selectedFile ? { text: rewrittenPrompt, sender: 'user', file: selectedFile.name , edit: false} : { text: rewrittenPrompt, sender: 'user' , edit: false};
+            setMessages([...messages, userMessage]);
+               
+    
+          }
+          catch (error) {
+            console.error('Error fetching AI response:', error);
+        
+    
+          }
+         
+
+
+        }
+        else{
+         userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false} : { text: tempValue, sender: 'user' , edit: false};
+         setMessages([...messages, userMessage]);
+        }
+       
+        try {
+          const response = await axios.post('/api/tokens', { text: userMessage.text, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId });
+          console.log('estimating :', response.data);
+          setTokens(response.data.estimatedCompletionTokens);
+           
+         }
+         catch (error) {
+           console.error('Error calculating tokens:', error);
+         }
+
+       
+       
+        setChat(true);
+        setSend(true);
         setSelectedFile(null);
         setLoader(true);
         setNameChatGroup(true);
-       
 
-  
+        
         try {
           // Create an EventSource to listen for streaming responses
-          
-          const eventSource = new EventSource(
-            `/api/chat?prompt=${encodeURIComponent(inputValue)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}`
-          );
-          
-          eventSource.onmessage = (event) => {
-            // Check if the message is the "[DONE]" indicator.
-            if (event.data === "[DONE]") {
-              // Optionally perform any cleanup, then close the connection.
+            let eventSource = null;
+            if(toolType === ""){
+
+                eventSource = new EventSource(`/api/chat?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&technique=${selectedOption}&assistant=${assistantText}`); 
               
-              eventSource.close();
-              return;
-            }
-            
-            let data;
-            try {
-              data = JSON.parse(event.data);
-            } catch (error) {
-              console.error("Error parsing JSON", error);
-              return;
-            }
-            
-            // Now you can process the parsed JSON data.
-            if (data.content) {
-              setLoader(false);
-              setMessages((prevMessages) => {
-                const lastMessage = prevMessages[prevMessages.length - 1];
-                if (lastMessage && lastMessage.sender === 'ai') {
-                  // Update the last AI message
-                  return [
-                    ...prevMessages.slice(0, -1),
-                    { text: lastMessage.text + data.content, sender: 'ai', id: lastMessage.id, edit: false },
-                  ];
-                } else {
-                  // Add a new AI message
-                  return [...prevMessages, { text: data.content, sender: 'ai', id: lastMessage.id, edit: false}];
+              eventSourceRef.current = eventSource;
+              
+              eventSource.onmessage = (event) => {
+                // Check if the message is the "[DONE]" indicator.
+                try {
+
+                  let data = JSON.parse(event.data);
+                  if (data.flag === "DONE" ) {
+                    // Optionally perform any cleanup, then close the connection. 
+                    setMessages((prevMessages) => 
+                      prevMessages.map((msg) => {
+                        if ( msg.id === null) {
+                          return { ...msg, id: data.id };
+                        }
+                        return msg;
+
+                    }));
+                    
+                  eventSource.close();
+                  setSend(false);
+                  setLoader(false);
+                    return;
                 }
-              });
-            }
-          };
-  
+                
+              
+                  if (data.content) {
+                    setLoader(false);
+                    setMessages((prevMessages) => {
+                      const lastMessage = prevMessages[prevMessages.length - 1];
+                      if (lastMessage && lastMessage.sender === 'ai') {
+                        // Update the last AI message
+                        return [
+                          ...prevMessages.slice(0, -1),
+                          { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false },
+                        ];
+                      } else {
+                        // Add a new AI message
+                        return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false}];
+                      }
+                    });
+                  }
+                  
+                } catch (error) {
+                  console.error("Error parsing JSON", error);
+                  return;
+                }
+                
+              };
+      
+
+          }
+
+          else{
+            eventSource = new EventSource(`/api/chatTool?prompt=${encodeURIComponent(userMessage.text)}&currentChatGroupId=${currentChatGroupId}&tool=${toolType}`); 
+              
+            eventSourceRef.current = eventSource;
+            
+            eventSource.onmessage = (event) => {
+              // Check if the message is the "[DONE]" indicator.
+              try {
+
+                let data = JSON.parse(event.data);
+                if (data.flag === "DONE" ) {
+                  // Optionally perform any cleanup, then close the connection. 
+                  setMessages((prevMessages) => 
+                    prevMessages.map((msg) => {
+                      if ( msg.id === null) {
+                        return { ...msg, id: data.id };
+                      }
+                      return msg;
+
+                  }));
+                  
+                eventSource.close();
+                setSend(false);
+                setLoader(false);
+                  return;
+              }
+              
+            
+                if (data.content) {
+                  setLoader(false);
+                  setMessages((prevMessages) => {
+                    const lastMessage = prevMessages[prevMessages.length - 1];
+                    if (lastMessage && lastMessage.sender === 'ai') {
+                      // Update the last AI message
+                      return [
+                        ...prevMessages.slice(0, -1),
+                        { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false },
+                      ];
+                    } else {
+                      // Add a new AI message
+                      return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false}];
+                    }
+                  });
+                }
+                
+              } catch (error) {
+                console.error("Error parsing JSON", error);
+                return;
+              }
+          
+
+
+
+
+          }
+          
           eventSource.onerror = (error) => {
             console.error('Error in EventSource:', error);
             eventSource.close();
+            setLoader(false);
+            setSend(false);
             
           };
           
-
+        }
 
 
         } catch (error) {
@@ -520,11 +609,25 @@ useEffect(() => {
   };
 
   
-  
-  function handleTemperatureChange(event, value) {
-    setTemperature(value);
+
+  const handleLogOut = async () => {
     
-  }
+    try {
+      const response = await axios.get('/api/logout');
+      if (response.data.message === 'Logout successful') {
+        console.log(response.data.message);
+        setIsAuthenticated(false);
+        setCurrentChatGroupId(null);
+        setUsername('');
+        localStorage.setItem('isAuthenticated', false);
+        localStorage.removeItem('currentChatGroupId');
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+
+  };
+  
 
 
   const toggleDrawer = (anchor, open) => (event) => {
@@ -534,163 +637,17 @@ useEffect(() => {
     setState({ ...state, [anchor]: open });
   };
 
-  // Modify createNewChat to create new chat group
-  const createNewChat = async () => {
-    try {
-      const response = await axios.post('/api/chatgroup', { username });
-      const newChatGroup = {
-        name: response.data.name,
-        _id: response.data.chatGroupId,
-        chats: []
-      };
-      setChatGroups(prevChatGroups => {
-        const updatedChatGroups = [...prevChatGroups, newChatGroup];
-        return updatedChatGroups;
-      });
-      setCurrentChatGroupId(response.data.chatGroupId);
-
-    } catch (error) {
-      console.error('Error creating chat group:', error);
-    }
-  };
 
   // Modify leftDrawer to show chat groups
   const leftDrawer = () => (
-    <Box sx={{ width: leftWidth }}>
-      <Button
-        variant="contained"
-        startIcon={<AddIcon/>}
-        onClick={createNewChat}
-        sx={{
-          border: '1px solid',
-          borderRadius: '50px',
-          textTransform: 'none',
-          fontSize: '16px',
-          mt: 2,
-          ml: 2,
-          width: '80%',
-        }}
-      >
-        New Chat
-      </Button>
-      <Divider sx={{  mt: 2 }} />
-      <List sx={{ width: '100%', mt: 2 }}>
-        {chatGroups.map((group, index) => (
-          <ListItem 
-            key={group._id}
-            disablePadding
-            sx={{
-             
-              bgcolor: currentChatGroupId === group._id ? 'rgba(0, 0, 0, 0.04)' : 'transparent',
-              borderLeft: currentChatGroupId === group._id ? themeMode === 'dark'? '4px solid#ede6e6' : '4px solid#141414': 'none',
-            }}
-          >
-            <ListItemButton
-              onClick={() => {
-                setCurrentChatGroupId(group._id);
-              }}
-            >
-              <ListItemText 
-                primary={group.name}
-                primaryTypographyProps={{ noWrap: true }}
-                sx={{ 
-                  pl: 2,
-                }} 
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-    </Box>
+    <LeftDrawer setChatGroups={setChatGroups} chatGroups={chatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} themeMode={themeMode} leftWidth={leftWidth} username={username} />
   );
 
   const rightDrawer = () => (
-    <>
-      <List>
-        {['Option 1', 'Option 2', 'Option 3', 'Option 4'].map((text, index) => (
-          <ListItem key={text} disablePadding>
-            <ListItemButton>
-              <ListItemText
-                primary={text}
-                
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider
-      
-      />
-      <Box sx={{ ml: 2 }}>
-      <FormGroup>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={themeMode === 'dark'}
-              onChange={event => setThemeMode(event.target.checked ? 'dark' : 'light')}
-              color="default"
-            />
-          }
-          label="Dark"
-        // Change label color
-        />
-      </FormGroup>
-      </Box>
-      <Divider
-        
-      />
-      <Box sx={{ minWidth: 40, mt: 2, ml: 2, mb: 2 }}>
-      <FormControl fullWidth>
-        <InputLabel
-          id="demo-simple-select-label"
-          
-        >
-          Model
-        </InputLabel>
-        <Select
-          labelId="demo-simple-select-label"
-          id="demo-simple-select"
-          value={model}
-          label="Model"
-          onChange={handleChange}
-          
-        >
-          <MenuItem value={'gpt-4-turbo-preview'}> gpt-4-turbo-preview </MenuItem> 
-          <MenuItem value={'gpt-4o-mini'}> gpt-4o-mini </MenuItem>
-          <MenuItem value={'gpt-3.5-turbo'}> gpt-3.5-turbo </MenuItem>
-          
-        </Select>
-      </FormControl>
-
-
-    </Box> 
-
-    <Divider/>
-    <Box sx={{ width: 150,ml: 2, mt: 2, mb: 2 }}>
-      <Typography id="discrete-slider" gutterBottom>
-
-        Temperature
-      </Typography>
-      <Slider
-        value={temperature}
-        step={0.01}
-        max={2}
-        aria-label="Temperature"
-        onChange={handleTemperatureChange}
-        valueLabelDisplay="auto"
-        color= {themeMode === 'dark' ? '#fff' : '#000'}
-      />
-    </Box>
-    
-    </>
+      <RightDrawer selectedOption={selectedOption} setSelectedOption={setSelectedOption} assistantText = {assistantText}setAssistantText={setAssistantText} toolType={toolType} setToolType={setToolType} />
   );
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    // setUsername('');
-    setCurrentChatGroupId(null);
-    localStorage.removeItem("token"); // Clear any stored tokens if using authentication
-  };
+ 
   
 
   // Content for drawers
@@ -707,250 +664,9 @@ useEffect(() => {
     </Box>
   );
   const cardContent = () => (
-  <div
-            style={{
-              display: "flex",
-              height: "40vh",
-              flexWrap: "wrap",
-              width: "100vh",
-              marginTop: 150,
-              marginLeft: "auto",
-              marginRight: "auto",
-              justifyContent: "center",
-            }}
-            >
-            <Card
-              sx={{
-              width: "40vh",
-              height: "20vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              
-              border: `1px solid`, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-                <Typography
-                  gutterBottom
-                  variant="h5"
-                  component="div"
-                 
-                >
-                  Capabilities
-                </Typography>
-                <Typography
-                  variant="body2"
-                 
-                >
-                  Remembers what you've said and uses it to generate responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "20vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-             
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-                <Typography
-                  gutterBottom
-                  variant="h5"
-                  component="div"
-                  
-                >
-                  Limitations
-                </Typography>
-                <Typography
-                  variant="body2"
-                  
-                >
-                  May not always provide accurate or relevant responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-              
-                <Typography
-                  variant="body2"
-                 
-                >
-                  Allows users to provide follow-up connections
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-              
-                <Typography
-                  variant="body2"
-                >
-                 May occasionally provide harmful or biased responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-            
-                <Typography
-                  variant="body2"
-                >
-                  trained to decline to provide information on inappropriate topics
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-            
-                <Typography
-                  variant="body2"
-                  
-                >
-                  Limited knowlegde of the world after Oct 2024
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-        </div>
+    <CardCont />
   );
-  // modified tokenData component
-  const TokensChart = () => {
-
-   // Create labels (e.g., message index)
-  const labels = tokenData.map((_, i) => i + 1);
-
-  // Extract prompt tokens and completion tokens arrays
-  const promptTokens = tokenData.map((item) => item.promptTokens);
-  const completionTokens = tokenData.map((item) => item.completionTokens);
-
-  // Define the data structure for Chart.js
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: 'Prompt Tokens',
-        data: promptTokens,
-        borderColor: 'rgba(75,192,192,1)',
-        backgroundColor: 'rgba(75,192,192,0.2)',
-        tension: 0.3,
-        fill: false,
-      },
-      {
-        label: 'Completion Tokens',
-        data: completionTokens,
-        borderColor: 'rgba(153,102,255,1)',
-        backgroundColor: 'rgba(153,102,255,0.2)',
-        tension: 0.3,
-        fill: false,
-      },
-    ],
-  };
-
-  // Define chart options
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Token Usage',
-      },
-    },
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: 'Message Index',
-        },
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Tokens',
-        },
-      },
-    },
-  };
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: '100px', // adjust vertical position as needed
-        left: 'calc(70vw + 200px)', // positioned roughly 70vw + 300px from the left
-        width: '200px',
-        height: '500px',
-        zIndex: 1200,
-        backgroundColor: themeMode === 'dark' ? 'black': 'white',
-        boxShadow: '0px 0px 5px rgba(0,0,0,0.3)',
-        padding: '16px',
-      }}
-    >
-      <Line data={data} options={options} />
-    </div>
-  );
-
-  };
+  
 
 
   // Modified ChatMessage component
@@ -1027,14 +743,14 @@ useEffect(() => {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: message.sender === 'user' ? '70%' : '100%', }}>
         <Box
           sx={{
-            width: 'fit-content',
-            border: `1px solid`,
-            borderRadius: '15px',
-            padding: '10px 15px',
+            width: message.sender === 'user' ? 'fit-content' : "100%",
+            border: message.sender === 'user' ? `1px solid`: '',
+            borderRadius: message.sender === 'user' ? '15px': '',
+            padding: '0px 15px',
             wordWrap: 'break-word',
           }}
         >
-          <Typography>{message.text}</Typography>
+          <Typography> <ReactMarkdown>{message.text}</ReactMarkdown></Typography>
         </Box>
         {message.sender === 'user'  && (
         <Box
@@ -1107,12 +823,9 @@ useEffect(() => {
 
   const handleImageClick = async () => {
     try {
-      const response = await axios.get(`/api/image/${currentChatGroupId}`);
-      console.log('Image response:', response.data.tokens);
-      setTokenData(response.data.tokens);
-      // ...handle the data from the API as needed...
+      window.open('/charts', '_blank'); // Opens /charts in a new tab
     } catch (error) {
-      console.error('Error fetching image:', error);
+      console.error('Error opening charts page:', error);
     }
   };
 
@@ -1157,141 +870,12 @@ useEffect(() => {
       height: 'calc(100vh - 200px)',
     
     }}>
-      <AppBar
-        position="fixed"
-        sx={{
-          width: getMainWidth(),
-          
-          
-          transition: "all 0.3s ease",
-          ml: state.left ? `${leftWidth}` : 0,
-          mr: state.right ? "200px" : 0,
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            size="large"
-            edge="start"
-            aria-label="menu"
-            
-            onClick={
-              state.left ? toggleDrawer("left", false) : toggleDrawer("left", true)
-            }
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography
-            variant="h8"
-            component="div"
-            sx={{ flex: 1, color: (themeMode === 'dark' ? 'white' : 'black') }} // Title color
-          >
-            LLM Analyzer
-          </Typography>
-
-
-
-          <Box sx={{ flex: 1 }}>
-            <Button
-              startIcon={<HelpOutlineIcon />}
-              sx={{ textTransform: "none" }} // Help button color
-            >
-              Help
-            </Button>
-          
-            </Box>
-
-
-            <Button
-              
-              startIcon={<AccountCircleIcon />}
-            >
-              <Typography
-              variant="h8"
-              component="div"
-              
-              >
-              {username || 'User Name'}
-              </Typography>
-            </Button>
-            <Button onClick={handleLogout} variant="outlined" sx={{ ml: 2 }}>
-  Logout
-</Button>
-
-            </Toolbar>
-          </AppBar>
+      <Appbar  getMainWidth={getMainWidth} leftWidth={leftWidth}  state={state}  toggleDrawer={toggleDrawer}  themeMode={themeMode} setThemeMode={setThemeMode} username={username} handleLogOut={handleLogOut} model={model} setModel={setModel} imageData={imageData} />
 
           { chat ? chatContent() : cardContent() }
         
-          <Box
-  sx={{
-    width: "65vw",
-    display: "flex",
-    flexDirection: "column", // Step 1: column layout
-    border: `1px solid`,
-    p: 1,
-    borderRadius: "20px",
-    mt: 2,
-    backgroundColor: themeMode === 'dark' ? '#333' : '#fff',
-    position: "fixed",
-    bottom: 20,
-    left: "50%",
-    transform: "translateX(-50%)",
-    height: 120, 
-  }}
->
-  {/* If a file is selected, show a Chip on top */}
-  {selectedFile && (
-    <Chip
-      label={selectedFile.name}
-      onDelete={() => handleFileDelete()}
-      deleteIcon={<CloseIcon />}
-      sx={{ mb: 1 }} 
-    />
-  )}
+          <BottomBar selectedFile={selectedFile}  setSelectedFile ={setSelectedFile}  currentChatGroupId ={currentChatGroupId} inputValue={inputValue} setInputValue={setInputValue} handleSendClick={handleSendClick}  state = {state} themeMode={themeMode} toggleDrawer = {toggleDrawer} handleImageClick={handleImageClick} send = {send} setSend={setSend} handleKeyPress={handleKeyPress} model = {model} />
 
-  {/* Step 3: wrap icon & TextField in nested row */}
-  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-    <AttachFileIcon
-      sx={{ mr: 1, cursor: "pointer" }}
-      onClick={handleFileAttachClick}
-    />
-    <input
-      ref={fileInputRef}
-      type="file"
-      style={{ display: 'none' }}
-      onChange={handleFileChange}
-    />
-
-    <AddchartIcon sx={{ mr: 2, cursor: "pointer" }} onClick={handleImageClick} />
-
-    <TextField
-      id="input-with-sx"
-      label="Add a prompt"
-      variant="standard"
-      fullWidth
-      multiline
-      maxRows={4}
-      value={inputValue}
-      onChange={(e) => setInputValue(e.target.value)}
-      onKeyDown={handleKeyPress}
-      error={inputValue.length > 500}
-      helperText={inputValue.length > 500 ? 'Character limit has been reached' : ''}
-      sx={{
-        flex: 1,
-      }}
-    />
-    <IconButton
-      onClick={
-        state.right
-          ? toggleDrawer("right", false)
-          : toggleDrawer("right", true)
-      }
-      sx={{ ml: 1 }}
-    >
-      <SettingsIcon sx={{ cursor: "pointer" }} />
-    </IconButton>
-  </Box>
-</Box>
 {state.left && ( <Box
           sx={{
             position: 'fixed',
@@ -1370,7 +954,7 @@ useEffect(() => {
         </Box>
       )}
 
-     { tokenData !== null ? <TokensChart /> : null }
+     
 
       </Box>
     </ThemeProvider>

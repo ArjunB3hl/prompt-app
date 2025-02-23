@@ -33,6 +33,10 @@ export function Login({ setIsAuthenticated, setUsername, setCurrentChatGroupId }
       });
       if (response.data.message === 'Login successful') {
         console.log('Login successful: ', response.data.message);
+        localStorage.setItem('isAuthenticated', true);
+        localStorage.setItem('currentChatGroupId', response.data.chatGroupId);
+        
+       
         setIsAuthenticated(true);
         setUsername(response.data.username);
         setCurrentChatGroupId(response.data.chatGroupId);
