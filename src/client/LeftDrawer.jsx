@@ -10,18 +10,18 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import axios from 'axios';
 
-export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroupId, themeMode, leftWidth, username}){
+export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroupId, themeMode, leftWidth, username, model}){
 
     const createNewChat = async () => {
         try {
-          const response = await axios.post('/api/chatgroup', { username });
+          const response = await axios.post('/api/chatgroup', { username, model });
           const newChatGroup = {
             name: response.data.name,
             _id: response.data.chatGroupId,
             chats: []
           };
           setChatGroups(prevChatGroups => {
-            const updatedChatGroups = [...prevChatGroups, newChatGroup];
+            const updatedChatGroups = [newChatGroup, ...prevChatGroups];
             return updatedChatGroups;
           });
           setCurrentChatGroupId(response.data.chatGroupId);
@@ -32,14 +32,16 @@ export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, cu
       };
     
     return (
-        <Box sx={{ width: leftWidth }}>
+        <Box sx={{ width: leftWidth,backgroundColor: themeMode === 'dark' ? '#121212' : '#f5f5f5', color: themeMode === 'dark' ? '#fff' : '#000', height: '100vh', overflow: 'auto' }}>
           <Button
             variant="contained"
             startIcon={<AddIcon/>}
             onClick={createNewChat}
+          
             sx={{
               border: '1px solid',
               borderRadius: '50px',
+            
               textTransform: 'none',
               fontSize: '16px',
               mt: 2,

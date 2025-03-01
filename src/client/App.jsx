@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-
+import { io } from 'socket.io-client';
 
 
 
@@ -108,17 +108,69 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
   const [resizingLeft, setResizingLeft] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [tokens, setTokens] = useState(0);
-  
+  const [characterTokens, setCharacterTokens] = useState(0);  
+  const [memory , setMemory] = useState(true);
+  const socketRef = useRef(null); 
   const [send, setSend] = useState(false);
   const [messages, setMessages] = useState([]);
   
   
+  useEffect(() => {
+    // Initialize socket connection
+    socketRef.current = io('http://localhost:5030', {
+      withCredentials: true,
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+   
+   
+    // Set up socket event listeners
+    socketRef.current.on('connect', () => {
+      console.log('Connected to server with socket ID:', socketRef.current.id);
+     
+      // Authenticate socket with user ID if available
+      if (localStorage.getItem('isAuthenticated') === 'true') {
+        socketRef.current.emit('authenticate', localStorage.getItem('currentChatGroupId'));
+      }
+    });
+   
+   
+    socketRef.current.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+   }, []);
 
+
+   
   
 
-useEffect(() => {
-}
-, [inputValue]);  
+   useEffect(() => {
+    // Add the event listener once, outside the condition
+    if (socketRef.current) {
+      socketRef.current.on('characterTokens', (data) => {
+        setCharacterTokens(data.tokens);
+      });
+    }
+  
+    // Only emit the event when input value changes and is not empty
+    if (inputValue.length > 0 && socketRef.current) {
+      socketRef.current.emit('characterTokens', { inputValue, model });
+    }
+  
+    // Clean up listener on unmount
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('characterTokens');
+      }
+    };
+  }, [inputValue, model]);
 
  
 
@@ -164,12 +216,25 @@ useEffect(() => {
       })
     );
 
+    setSend(true);
+
     try {
       // Create an EventSource to listen for streaming responses
+      let eventSource = null;
+      if(memory === true){
       
-      const eventSource = new EventSource(
+     eventSource = new EventSource(
         `/api/chat?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id}`
       );
+    }
+
+    else{
+
+      eventSource = new EventSource(
+        `/api/chatCompletion?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id}`
+      );
+    }
+
       
       eventSource.onmessage = (event) => {
         // Check if the message is the "[DONE]" indicator.
@@ -183,7 +248,7 @@ useEffect(() => {
               return message;
             }
           ));
-          
+          setSend(false);
           eventSource.close();
           
           return;
@@ -213,6 +278,7 @@ useEffect(() => {
       eventSource.onerror = (error) => {
         console.error('Error in EventSource:', error);
         eventSource.close();
+        setSend(false);
         
       };
 
@@ -264,6 +330,7 @@ useEffect(() => {
 
 useEffect(() => {
   // If there's exactly 1 user message total, run the second SSE
+  console.log("Messages are : ", messages);
   const userMessageCount = messages.filter(msg => msg.sender === 'user').length;
   
   if (userMessageCount === 1 && nameChatGroup === true) {
@@ -327,7 +394,7 @@ useEffect(() => {
   }
 }, [messages]);
 
- 
+
 
  
   
@@ -362,7 +429,7 @@ useEffect(() => {
   }, [currentChatGroupId]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (messagesEndRef.current && !send) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' }); // Step 4: Scroll to bottom
     }
   }, [messages]); // Dependencies include messages and loading
@@ -381,6 +448,7 @@ useEffect(() => {
 
   
   useEffect(() => {
+ 
     return () => {
         if (eventSourceRef.current) {
             eventSourceRef.current.close();
@@ -416,45 +484,24 @@ const handleSendClick = () => {
      
 
 
-      if (inputValue.trim() && inputValue.length <= 500) {
+      if (inputValue.trim() && inputValue.length <= 3000) {
        
       
     
 
         let tempValue = inputValue;
         setInputValue('');
-        setAssistantText('');
-        let userMessage ;
-        if(selectedOption === 'Few Shot prompting'  || selectedOption === 'Chain of Thought prompting' || selectedOption === 'Self Consistency' ) {
-          
-          try{
-            
-            const response = await axios.get(
-              `/api/prompting?prompt=${encodeURIComponent(tempValue)}&technique=${selectedOption}`
-            );
-            const rewrittenPrompt = response.data.content; 
-    
-            userMessage = selectedFile ? { text: rewrittenPrompt, sender: 'user', file: selectedFile.name , edit: false} : { text: rewrittenPrompt, sender: 'user' , edit: false};
-            setMessages([...messages, userMessage]);
-               
-    
-          }
-          catch (error) {
-            console.error('Error fetching AI response:', error);
         
-    
-          }
-         
-
-
-        }
-        else{
-         userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false} : { text: tempValue, sender: 'user' , edit: false};
+        
+        
+          
+          
+         const userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false, id: null} : { text: tempValue, sender: 'user' , edit: false, id: null};
          setMessages([...messages, userMessage]);
-        }
+        
        
         try {
-          const response = await axios.post('/api/tokens', { text: userMessage.text, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId });
+          const response = await axios.post('/api/tokens', { text: userMessage.text, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
           console.log('estimating :', response.data);
           setTokens(response.data.estimatedCompletionTokens);
            
@@ -477,59 +524,80 @@ const handleSendClick = () => {
             let eventSource = null;
             if(toolType === ""){
 
-                eventSource = new EventSource(`/api/chat?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&technique=${selectedOption}&assistant=${assistantText}`); 
-              
-              eventSourceRef.current = eventSource;
-              
-              eventSource.onmessage = (event) => {
-                // Check if the message is the "[DONE]" indicator.
-                try {
 
-                  let data = JSON.parse(event.data);
-                  if (data.flag === "DONE" ) {
-                    // Optionally perform any cleanup, then close the connection. 
-                    setMessages((prevMessages) => 
-                      prevMessages.map((msg) => {
-                        if ( msg.id === null) {
-                          return { ...msg, id: data.id };
-                        }
-                        return msg;
+                    if(memory === true){
 
-                    }));
-                    
-                  eventSource.close();
-                  setSend(false);
-                  setLoader(false);
-                    return;
-                }
-                
-              
-                  if (data.content) {
-                    setLoader(false);
-                    setMessages((prevMessages) => {
-                      const lastMessage = prevMessages[prevMessages.length - 1];
-                      if (lastMessage && lastMessage.sender === 'ai') {
-                        // Update the last AI message
-                        return [
-                          ...prevMessages.slice(0, -1),
-                          { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false },
-                        ];
-                      } else {
-                        // Add a new AI message
-                        return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false}];
-                      }
-                    });
-                  }
-                  
-                } catch (error) {
-                  console.error("Error parsing JSON", error);
-                  return;
-                }
-                
-              };
-      
+                            eventSource = new EventSource(`/api/chat?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&technique=${selectedOption}&assistant=${assistantText}`); 
+                    }
+                    else{
+                            eventSource = new EventSource(`/api/chatCompletion?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}`);
+                    }
+                          eventSourceRef.current = eventSource;
+                          
+                          eventSource.onmessage = (event) => {
+                            // Check if the message is the "[DONE]" indicator.
+                            try {
+
+                              let data = JSON.parse(event.data);
+                              if (data.flag === "DONE" ) {
+                                // Optionally perform any cleanup, then close the connection. 
+                                setMessages((prevMessages) => 
+                                  prevMessages.map((msg) => {
+                                    if ( msg.id === null) {
+                                      return { ...msg, id: data.id };
+                                    }
+                                    return msg;
+
+                                }));
+                                
+                              eventSource.close();
+                              setSend(false);
+                              setLoader(false);
+                                return;
+                            }
+                            
+                          
+                              if (data.content) {
+                                setLoader(false);
+                                setMessages((prevMessages) => {
+                                  const lastMessage = prevMessages[prevMessages.length - 1];
+                                  if (lastMessage && lastMessage.sender === 'ai') {
+                                    // Update the last AI message
+                                    return [
+                                      ...prevMessages.slice(0, -1),
+                                      { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false, id: null },
+                                    ];
+                                  } else {
+                                    // Add a new AI message
+                                    return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false, id: null}];
+                                  }
+                                });
+                              }
+                              
+                            } catch (error) {
+                              console.error("Error parsing JSON", error);
+                              setSend(false);
+                              setLoader(false);
+                              return;
+                            }
+                            
+                          };
+                        
+                          eventSource.onerror = (error) => {
+                            console.error('Error in EventSource:', error);
+                            eventSource.close();
+                            setLoader(false);
+                            setSend(false);
+                            
+                          };
+                     
+
+
 
           }
+
+
+
 
           else{
             eventSource = new EventSource(`/api/chatTool?prompt=${encodeURIComponent(userMessage.text)}&currentChatGroupId=${currentChatGroupId}&tool=${toolType}`); 
@@ -578,6 +646,8 @@ const handleSendClick = () => {
                 
               } catch (error) {
                 console.error("Error parsing JSON", error);
+                setSend(false);
+                setLoader(false);
                 return;
               }
           
@@ -615,6 +685,10 @@ const handleSendClick = () => {
     try {
       const response = await axios.get('/api/logout');
       if (response.data.message === 'Logout successful') {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
+   
         console.log(response.data.message);
         setIsAuthenticated(false);
         setCurrentChatGroupId(null);
@@ -640,11 +714,11 @@ const handleSendClick = () => {
 
   // Modify leftDrawer to show chat groups
   const leftDrawer = () => (
-    <LeftDrawer setChatGroups={setChatGroups} chatGroups={chatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} themeMode={themeMode} leftWidth={leftWidth} username={username} />
+    <LeftDrawer setChatGroups={setChatGroups} chatGroups={chatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} themeMode={themeMode} leftWidth={leftWidth} username={username} model={model} />
   );
 
   const rightDrawer = () => (
-      <RightDrawer selectedOption={selectedOption} setSelectedOption={setSelectedOption} assistantText = {assistantText}setAssistantText={setAssistantText} toolType={toolType} setToolType={setToolType} />
+      <RightDrawer selectedOption={selectedOption} setSelectedOption={setSelectedOption} assistantText = {assistantText}setAssistantText={setAssistantText} toolType={toolType} setToolType={setToolType} themeMode={themeMode} memory={memory} />
   );
 
  
@@ -764,7 +838,8 @@ const handleSendClick = () => {
             
           }}
         >
-          <EditIcon onClick ={ () => handleEditing(message.id )}/>
+          {message.sender === 'ai' && message.text==='' && <CircularProgress size="1.5rem" />}
+          { (message.id!==null || message.id!==undefined) && <EditIcon onClick ={ () => handleEditing(message.id )}/> }
         </Box>
         
       ) }
@@ -776,6 +851,7 @@ const handleSendClick = () => {
 
   // Add messages display area - place this before the input Box component
   const chatContent = () => (
+ 
     <Box
       sx={{
         // Full width for AI messages
@@ -799,19 +875,23 @@ const handleSendClick = () => {
         </>
         
       ))}
+      
     {loader ? (<Box 
       sx={{
+        position: 'relative',
         width: '65vw',
         display: 'flex',
-        justifyContent:  'flex-start',
+        justifyContent: 'flex-start',
+        
       }}
-    ><Box sx={{ display: 'flex', alignItems: 'flex-start'}}>
-        <CircularProgress size="1.5rem"/> 
+    > <Box sx={{ display: 'flex', alignItems: 'flex-start'}}>
+       <CircularProgress size="1.5rem" />  
         <Typography sx={{ ml: 1 }}> Estimating {tokens} completion tokens</Typography>
       </Box> </Box>)    : null}
 
     {!isEditing && <div ref={messagesEndRef} /> } {/* Step 3: Attach ref */}
     </Box>
+   
   );
 
   const getMainWidth = () => {
@@ -870,11 +950,11 @@ const handleSendClick = () => {
       height: 'calc(100vh - 200px)',
     
     }}>
-      <Appbar  getMainWidth={getMainWidth} leftWidth={leftWidth}  state={state}  toggleDrawer={toggleDrawer}  themeMode={themeMode} setThemeMode={setThemeMode} username={username} handleLogOut={handleLogOut} model={model} setModel={setModel} imageData={imageData} />
+      <Appbar  getMainWidth={getMainWidth} leftWidth={leftWidth}  state={state}  toggleDrawer={toggleDrawer}  themeMode={themeMode} setThemeMode={setThemeMode} username={username} handleLogOut={handleLogOut} model={model} setModel={setModel} imageData={imageData} setMemory = {setMemory} memory={memory} />
 
           { chat ? chatContent() : cardContent() }
         
-          <BottomBar selectedFile={selectedFile}  setSelectedFile ={setSelectedFile}  currentChatGroupId ={currentChatGroupId} inputValue={inputValue} setInputValue={setInputValue} handleSendClick={handleSendClick}  state = {state} themeMode={themeMode} toggleDrawer = {toggleDrawer} handleImageClick={handleImageClick} send = {send} setSend={setSend} handleKeyPress={handleKeyPress} model = {model} />
+          <BottomBar selectedFile={selectedFile}  setSelectedFile ={setSelectedFile}  currentChatGroupId ={currentChatGroupId} inputValue={inputValue} setInputValue={setInputValue} handleSendClick={handleSendClick}  state = {state} themeMode={themeMode} toggleDrawer = {toggleDrawer} handleImageClick={handleImageClick} send = {send} setSend={setSend} handleKeyPress={handleKeyPress} model = {model}  characterTokens={characterTokens} selectedOption={selectedOption} memory={memory}/>
 
 {state.left && ( <Box
           sx={{

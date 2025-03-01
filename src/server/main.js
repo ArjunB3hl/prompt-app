@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import session from "express-session";
 import bcryptjs from "bcryptjs";
 import { google } from "googleapis";
-
+import { Server as SocketIOServer } from "socket.io";
 
 import { UserModel } from "../models/user.js";
 import { RunModel } from "../models/run.js";
@@ -14,6 +14,7 @@ import { FileModel } from "../models/file.js";
 import { encoding_for_model } from "@dqbd/tiktoken";
 import EventHandlerMail from "../functions/mail.js";
 import EventHandlerDocument from "../functions/doc.js";
+import Anthropic from '@anthropic-ai/sdk';
 
 import "dotenv/config"; // Loads environment variables from .env
 import OpenAI from "openai";
@@ -54,6 +55,12 @@ const scopes = [
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 mongoose
@@ -141,7 +148,6 @@ app.get('/oauth2callback', async (req, res) => {
             // Create a new thread and assistant for this user
           const emptyThread = await openai.beta.threads.create();
           const myAssistant = await openai.beta.assistants.create({
-            instructions: "Answer questions",
             model: "gpt-3.5-turbo",
             
           });
@@ -199,12 +205,14 @@ app.post("/api/signup", async (req, res) => {
     await user.save();
 
     // Create a new thread and assistant for this user
-    const emptyThread = await openai.beta.threads.create();
-    const myAssistant = await openai.beta.assistants.create({
-      instructions: "Answer questions",
-      model: "gpt-3.5-turbo",
-      
-    });
+    const [myAssistant, emptyThread] = await Promise.all([
+      openai.beta.assistants.create({
+       
+        model: "gpt-3.5-turbo",
+        
+      }),
+      openai.beta.threads.create()
+    ]);
 
     // Create a default chat group for the new user
     const chatGroup = new RunModel({
@@ -248,7 +256,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     // Find an existing chat group for the user
-    const chatGroup = await RunModel.findOne({ user: user._id });
+    const chatGroup = await RunModel.findOne({ user: user._id }).sort({ updatedAt: -1 });
     if (!chatGroup) {
       console.log("chatGroup not found");
       return res.status(401).json({ error: "Invalid credentials" });
@@ -291,18 +299,23 @@ app.get("/api/logout", isAuthenticated, async (req, res) => {
 app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
   try {
     const user = await UserModel.findOne({ username: req.body.username });
-    const myAssistant = await openai.beta.assistants.create({
-      instructions: "Answer questions",
-      model: "gpt-3.5-turbo",
+    
+    
+    const [myAssistant, emptyThread] = await Promise.all([
+      openai.beta.assistants.create({
       
-    });
-    const emptyThread = await openai.beta.threads.create();
+        model: "gpt-3.5-turbo",
+        
+      }),
+      openai.beta.threads.create()
+    ]);
+
 
     // Create a new chat group for the user
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-3.5-turbo" },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : req.body.model },
     });
     await chatGroup.save();
     req.session.currentChatGroupId = chatGroup._id;
@@ -318,7 +331,7 @@ app.get("/api/check-auth", async (req, res) => {
   if (req.session.userId) {
     try {
       const user = await UserModel.findById(req.session.userId);
-      const chatGroups = await RunModel.find({ user: req.session.userId });
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
       console.log("chatGroupID: ", req.session.currentChatGroupId);
       console.log("user ", user);
       res.json({
@@ -368,14 +381,18 @@ app.post("/api/upload/:chatGroupId", upload.single("file"), async (req, res) => 
 
   try {
     // Upload the file to OpenAI and create a vector store
-    const openaiFile = await openai.files.create({
-      file: fs.createReadStream(req.file.path),
-      purpose: "assistants",
-    });
 
-    const vectorStore = await openai.beta.vectorStores.create({
-      name: `User-${req.session.userId}-${Date.now()}`,
-    });
+    const [openaiFile, vectorStore] = await Promise.all([
+      openai.files.create({
+        file: fs.createReadStream(req
+        .file.path),
+        purpose: "assistants",
+      }),
+      openai.beta.vectorStores.create({
+        name: `User-${req.session.userId}-${Date.now()}`,           
+      }),
+    ]);
+   
 
     console.log("Vector store created ", vectorStore);
 
@@ -386,6 +403,7 @@ app.post("/api/upload/:chatGroupId", upload.single("file"), async (req, res) => 
         $set: {
           "run.vectorStoreId": vectorStore.id,
           "run.fileId": openaiFile.id,
+          
         },
       },
       { new: true }
@@ -435,6 +453,11 @@ app.delete("/api/delete-file/:chatGroupId/:filename", async (req, res) => {
       return res.status(404).json({ error: "Chat group not found" });
     }
 
+    await openai.beta.assistants.update(chatGroup.run.AssistantId, {
+      tool_resources: {},
+      tools: [],
+    });
+
     // Find the file document by filename
     const fileDoc = await FileModel.findOne({ fileName: req.params.filename });
     if (!fileDoc) {
@@ -450,10 +473,7 @@ app.delete("/api/delete-file/:chatGroupId/:filename", async (req, res) => {
     }
     await openai.files.del(chatGroup.run.fileId);
 
-    await openai.beta.assistants.update(run.run.AssistantId, {
-      tool_resources: {},
-      tools: [],
-    });
+    
 
     
     // Remove the file attachment from the chat group document
@@ -677,6 +697,9 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
       // Add chat to the chat group's messages
       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
+        $set: { 
+          "updatedAt": new Date()  // Update the timestamp
+        }
       });
    
   } catch (error) {
@@ -686,6 +709,249 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
   }
 });
 
+// SSE endpoint for chat
+app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
+  // Set SSE headers immediately
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  console.log("Client connected in chat completions");
+  let isDisconnected = false;
+
+    req.on("close", () => {
+
+        console.log("Client disconnected");
+        isDisconnected = true;
+    });
+
+  try {
+    // Extract query parameters (note: currentChatGroupId comes from client)
+    const { model, prompt, currentChatGroupId } = req.query;
+    const responseData = { model, prompt, currentChatGroupId};
+
+    // Find the run by chat group ID
+      const run = await RunModel.findById(responseData.currentChatGroupId);
+      if (!run) {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ error: "Run not found" })}\n\n`
+        );
+        res.end();
+        return;
+      }
+
+      // Add the user's message to the existing thread
+
+
+      
+
+    let aiMessage = "";
+    let promptTokens = 0;
+    let completionTokens = 0;
+  
+    // Stream events 
+    const obj = {
+      model: responseData.model,
+      messages: [
+        {"role": "user", "content": responseData.prompt}
+      ],
+      stream: true,
+      stream_options: {
+        include_usage: true,
+      }
+    };
+
+    let completion = null;
+    
+       if(model === "gpt-4o-mini" || model === "gpt-3.5-turbo" || model === "o1-mini" || model === "o3-mini"){
+            completion = await openai.chat.completions.create(obj);
+            try{
+                 
+                    
+                    
+              for await (const chunk of completion) {
+                
+                if (isDisconnected) { // Check for abort *inside* the loop
+                  console.log("OpenAI stream aborted");
+                  break; // Exit the loop
+              }
+
+           
+                  const content = chunk.choices[0]?.delta?.content;
+                  promptTokens = chunk.usage?.prompt_tokens;
+                  completionTokens = chunk.usage?.completion_tokens;
+                  if(chunk.usage !== undefined){
+                    console.log("Prompt tokens: ", promptTokens);
+                    console.log("Completion tokens: ", completionTokens);
+                  }
+                  
+                  if (content) {
+                    aiMessage += content;
+                    res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                  }
+                
+
+              }
+              
+
+              
+
+              
+      
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              console.log('OpenAI API request aborted');
+          } else {
+              console.error("Error processing stream:", error);
+          }
+        }
+       }
+       else{
+
+        
+          try {
+            // Use the anthropic client for Claude models
+            const stream = await anthropic.messages.stream({
+              model: model, // e.g. "claude-3-5-haiku-20241022"
+              max_tokens: 4000,
+              messages: [
+                { role: "user", content: responseData.prompt }
+              ],
+            });
+        
+            // Process the stream chunks
+            for await (const chunk of stream) {
+              if (isDisconnected) {
+                await stream.controller.abort();
+                break;
+              }
+        
+              if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+                aiMessage += chunk.delta.text;
+                res.write(`data: ${JSON.stringify({ content: chunk.delta.text })}\n\n`);
+              }
+              console.log("Claude chunk:", chunk);
+              // Track usage once complete
+              if (chunk.type === 'message_start' ) {
+                promptTokens = chunk.message.usage?.input_tokens || 0;
+                
+               
+              }
+              if(chunk.type === 'message_delta'){
+
+                completionTokens = chunk.usage?.output_tokens || 0;
+                console.log("Claude usage:", {
+                  promptTokens,
+                  completionTokens
+                });
+
+              }
+
+
+              
+            }
+            
+            // Ensure we have the final event
+            res.write(`data: ${JSON.stringify({ content: "\n" })}\n\n`);
+            
+          } catch (error) {
+            console.error("Error streaming from Claude:", error);
+            res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+          }
+        }
+
+
+
+        
+
+    
+ 
+          
+    
+
+    
+
+    
+   
+    
+
+    let chat =  null;
+    // Save the chat message in the database
+    if (req.query.messageId) {
+      // Send a "done" event to indicate the end of the stream
+      try {
+        // Validate it's a proper ObjectId
+        if (!mongoose.Types.ObjectId.isValid(req.query.messageId)) {
+          throw new Error('Invalid message ID format');
+        }
+        
+        const chatMessage = await MessageModel.findById(req.query.messageId);
+        if (!chatMessage) {
+          throw new Error('Message not found');
+        }
+        res.write("data: [DONE]\n\n");
+        res.end();
+        console.log("Editing messageId");
+      
+        // Update the AI response
+      
+        console.log("Changing the AI response:", chatMessage.AIMessage);
+        chatMessage.UserMessage = responseData.prompt;  
+        chatMessage.AIMessage = aiMessage;
+      
+        await chatMessage.save(); // Save only the modified message
+        
+        // Rest of your code...
+      } catch (error) {
+        console.error('Error in /api/chatCompletions SSE route:', error);
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.end();
+        return;
+      }
+
+     
+
+        // Add chat to the chat group's messages
+  
+     
+    }
+    else{
+    chat = new MessageModel({
+      UserMessage: responseData.prompt,
+      AIMessage: aiMessage,
+      promptTokens: promptTokens,
+      completionTokens: completionTokens,
+    });
+    await chat.save();
+    // Send a "done" event  to indicate the end of the stream
+    res.write(`data: ${JSON.stringify({ flag: 'DONE', id: chat._id })}\n\n`);
+    res.end();
+
+      // Add chat to the chat group's messages
+      await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
+        $push: { "run.messages": chat._id},
+        $set: { "run.model": responseData.model,
+        "updatedAt": new Date() 
+        }
+      });
+  }
+    
+   
+  } catch (error) {
+    console.error("Error in /api/chatCompletions SSE route:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+
+
+
+
+
+
+
+
 
 // SSE endpoint for chat
 app.get("/api/chat", isAuthenticated, async (req, res) => {
@@ -694,7 +960,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  
+  console.log("Client connected in api/chat");
   let isDisconnected = false;
 
     req.on("close", () => {
@@ -718,9 +984,17 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         return;
       }
 
-      const myAssistant = await openai.beta.assistants.retrieve(
-        run.run.AssistantId
-      );
+      // Add the user's message to the existing thread
+
+      const[myAssistant, threadMessage] = await Promise.all([
+        openai.beta.assistants.retrieve(run.run.AssistantId),
+        openai.beta.threads.messages.create(run.run.threadId, {
+          role: "user",
+          content: responseData.prompt,
+        })
+      ]);
+
+      
       if(myAssistant.model !== responseData.model){ 
 
         await openai.beta.assistants.update(run.run.AssistantId, {
@@ -748,18 +1022,15 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
       }
       
       else{
-        if(myAssistant.instructions !== "Answer questions"){
+        if(myAssistant.instructions !== null){
           await openai.beta.assistants.update(run.run.AssistantId, {
 
-            instructions: "Answer questions",
+            instructions: null,
           });
 
       } }
-    // Add the user's message to the existing thread
-    await openai.beta.threads.messages.create(run.run.threadId, {
-      role: "user",
-      content: responseData.prompt,
-    });
+    
+    
 
     // Create a new run with the assistant
 
@@ -781,7 +1052,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
     });
           try{
                   for await (const event of newRun) {
-                    console.log("Event status: ", event.event);
+                    
                     if(event.event === 'thread.run.created'){
                       runId = event.data.id;
                       console.log("Run ID: ", runId);
@@ -864,7 +1135,9 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
       // Add chat to the chat group's messages
       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
-        $set: { "run.model": responseData.model }
+        $set: { "run.model": responseData.model,
+        "updatedAt": new Date() 
+        }
       });
   }
     
@@ -914,47 +1187,79 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
 
 app.post("/api/tokens", isAuthenticated, async (req, res) => {
   try {
-    const { text, model, chatGroupId } = req.body;
+    const { text, model, chatGroupId, memory } = req.body;
 
     if (!text || !model || !chatGroupId) {
         return res.status(400).json({ error: "Missing required parameters" });
     }
 
-    // Load the correct tokenizer for the model
-    const enc = encoding_for_model(model);
-    
+   
+   
     // Get the chat history from the database
-    const chatRun = await RunModel.findById(chatGroupId).populate("run.messages");
+    const chatRun = await RunModel.findById(chatGroupId)
 
     if (!chatRun) {
         return res.status(404).json({ error: "Chat group not found" });
     }
 
-    // Tokenize previous messages (system + user + assistant)
-    let pastTokens = 0;
-    chatRun.run.messages.forEach((msg) => {
-        pastTokens += enc.encode(msg.UserMessage || "").length;
-        pastTokens += enc.encode(msg.AIMessage || "").length;
-    });
 
-    // Tokenize the new input message
-    const inputTokens = enc.encode(text).length;
+    let estimatedCompletionTokens = 0;
 
-    // Define estimated completion token limits based on the model
-    const modelCompletionFactors = {
-        "gpt-4-turbo-preview": 1.5, // Predicts 1.5x input tokens
-        "gpt-4o-mini": 1.3, // Predicts 1.3x input tokens
-        "gpt-3.5-turbo": 1.2, // Predicts 1.2x input tokens
-    };
+       // Load the correct tokenizer for the model
+    if(model === "gpt-4o-mini" || model === "gpt-3.5-turbo" || model === "o1-mini" || model === "o3-mini"){
+              const enc = encoding_for_model(model);
 
-    const completionFactor = modelCompletionFactors[model] || 1.2;
-    const estimatedCompletionTokens = pastTokens + Math.ceil(inputTokens * completionFactor);
+              let thread_messages = null;
+              let messages = null;
+              let pastTokens = 0;
+              if (memory) {
+                thread_messages = await openai.beta.threads.messages.list(chatRun.run.threadId, {limit: 100});
+                  messages = thread_messages.data.map((msg) => msg.content[0].text.value);
+                  console.log("Messages: ", messages);
+                  messages.forEach((msg) => {
+                      pastTokens += enc.encode(msg).length;
+                  } );
+              }
+
+              
+              // Tokenize the new input message
+              const inputTokens = enc.encode(text).length;
+
+              // Define estimated completion token limits based on the model
+              const modelCompletionFactors = {
+                  "o1-mini": 1.5, // Predicts 1.5x input tokens
+                  "gpt-4o-mini": 1.3, // Predicts 1.3x input tokens
+                  "gpt-3.5-turbo": 1.2, // Predicts 1.2x input tokens
+              };
+
+              const completionFactor = modelCompletionFactors[model] || 1.2;
+              estimatedCompletionTokens = pastTokens + Math.ceil(inputTokens * completionFactor);
+              // Free memory for tokenizer
+              enc.free();
+
+            }
+            else{
+              try {
+              const client = new Anthropic();
+
+              const response = await client.messages.countTokens({ model: req.body.model, 
+                system: 'You are a scientist', messages: [{ role: 'user', content: text }] });
+
+                console.log("Response: ", response);
+                
+              estimatedCompletionTokens = response.input_tokens*1.5;
+             
+              }
+              catch (error) {
+                console.error("Error estimating tokens:", error);
+                return res.status(500).json({ error: "Internal server error" });
+              }
+
+            }
 
     
 
-    // Free memory for tokenizer
-    enc.free();
-
+    
     // Return token estimates
     return res.json({
         
@@ -1028,7 +1333,7 @@ app.get("/api/chatGroupName", isAuthenticated, async (req, res) => {
     // Save the chat message in the database
   
     await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
-      $set: { "name": aiMessage }
+      $set: { "name": aiMessage, "updatedAt": new Date() }
     });
 
   } catch (error) {
@@ -1050,14 +1355,14 @@ app.get("/api/prompting", isAuthenticated, async (req, res) => {
 
     // Call OpenAI *without* streaming
     const completion = await openai.chat.completions.create({
-      model: "o1-mini",
+      model: "o3-mini",
       messages: [
         {
           role: "user", // Use "user" as the default role
           content: `You are an expert in prompt engineering. Your task is to rewrite the given prompt using the specified technique. The technique is: ${technique}. Follow these rules:
-          - If the technique is "Chain-of-Thought", break the prompt into logical steps.
+          - If the technique is "Chain-of-Thought", Given a user's prompt, rewrite the prompt into a detailed chain-of-thought prompt, explicitly instructing an LLM to think step-by-step. Include clear guidance to outline intermediate reasoning steps explicitly before providing the final answer.
           - If the technique is "Few-Shot Prompting", include 2-3 examples in the rewritten prompt.
-          - If the technique is "Self-Consistency", generate multiple perspectives or approaches to the prompt and ensure they are consistent with each other.
+          - If the technique is "Self-Consistency", Given a user's prompt, rewrite it into a prompt explicitly instructing an LLM to employ a Self-Consistency approach. The prompt should clearly ask the model to independently generate multiple detailed step-by-step reasoning paths for the same problem, explicitly instructing the model to arrive at each solution independently and then aggregate or compare these reasoning paths to determine a reliable final answer.
           - If the technique is not recognized, default to improving the clarity and specificity of the prompt. Important: No meta comments or instructions should be included in the rewritten prompt.
           
           Original Prompt: ${prompt}\nTechnique: ${technique}`,
@@ -1128,6 +1433,67 @@ app.get("/api/chatgroup/:id/chats", isAuthenticated, async (req, res) => {
   }
 });
 
-ViteExpress.listen(app, 5030, () =>
+// Set up Socket.io with the server
+const server = ViteExpress.listen(app, 5030, () =>
   console.log("Server is listening on port 5030...")
-);
+ );
+ 
+ // Initialize Socket.io
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: "http://localhost:5030",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+ });
+
+ // Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log('New client with chatGroup connected', socket.id);
+   // Store user information when they authenticate
+  socket.on('authenticate', (chatGroupID) => {
+    socket.chatGroupID = chatGroupID;
+    socket.join(`chatGroup:${chatGroupID}`); // Join a room specific to this user
+    console.log(`chatGroup ${chatGroupID} authenticated with socket ${socket.id}`);
+  });
+ 
+
+  socket.on('characterTokens', async (data) => {
+    try{ 
+      const { inputValue, model } = data;
+      let tokens = 0;
+      if(model === "gpt-4o-mini" || model === "gpt-3.5-turbo" || model === "o1-mini" || model === "o3-mini"){
+                const enc = encoding_for_model(model);
+                tokens = enc.encode(inputValue).length;
+                enc.free();
+      }
+      else{
+        try {
+          const client = new Anthropic();
+          const response = await client.messages.countTokens({ model: model, 
+             messages: [{ role: 'user', content: inputValue }] });
+          tokens = response.input_tokens;
+        }
+        catch (error) {
+          console.error("Error fetching character tokens:", error);
+        }
+      }
+    
+      // Emit the tokens back to the client
+      socket.emit('characterTokens', { tokens });
+    } catch (error) {
+      console.error("Error fetching character tokens:", error);
+   
+    }
+
+
+
+  }
+  );
+  socket.on('disconnect', () => {
+    console.log('Client disconnected', socket.id);
+  });
+ 
+});
+
+

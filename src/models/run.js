@@ -14,12 +14,12 @@ const RunSchema = new Schema({
     run: {
         threadId: {
             type: String,
-            required: true,
+            required: false,
             unique: true
         },
         AssistantId: {
             type: String,
-            required: true,
+            required: false,
             unique: true
         },
         vectorStoreId: {
@@ -49,7 +49,7 @@ const RunSchema = new Schema({
     ],
         
     },
-   
-});
+    updatedAt: { type: Date, default: Date.now }  // Add this field
+}, { timestamps: true });  // This adds createdAt and updatedAt timestamps automatically
 
 export const RunModel = mongoose.model('Run', RunSchema);

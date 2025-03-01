@@ -12,6 +12,7 @@ import { use, useEffect } from "react";
 
 
 export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId, setImageData }) {
+  
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -33,12 +34,15 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
     }
     checkAuth();
   }, []);
+  
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
   } = useForm({ mode: "onChange" });
+
+  
 
   const registerOptions = {
     username: { required: "Username cannot be blank" },
@@ -69,6 +73,8 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         setIsAuthenticated(true);
         setUsername(response.data.username);
         setCurrentChatGroupId(response.data.chatGroupId);
+        localStorage.setItem("isAuthenticated", true);
+        localStorage.setItem('currentChatGroupId', response.data.chatGroupId);
         // Optionally, redirect the user or auto-login
       }
     } catch (error) {

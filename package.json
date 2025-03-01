@@ -9,6 +9,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@dqbd/tiktoken": "^1.0.20",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
@@ -34,6 +35,7 @@
     "react-markdown": "^9.0.3",
     "react-router-dom": "^7.1.1",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "vite-express": "*",
     "websocket": "^1.0.35"
   },

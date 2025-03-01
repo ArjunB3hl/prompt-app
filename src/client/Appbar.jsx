@@ -18,16 +18,17 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Select from '@mui/material/Select';
 import { FormControl } from '@mui/material';
 import InputLabel from '@mui/material/InputLabel';
+import Checkbox from '@mui/material/Checkbox';
 
 
 
 
 
-export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode, setThemeMode, username, handleLogOut, model, setModel,imageData}) {
+export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode, setThemeMode, username, handleLogOut, model, setModel,imageData,setMemory, memory}) {
 
 
     
-        const [anchorEl, setAnchorEl] = React.useState(null);
+      const [anchorEl, setAnchorEl] = React.useState(null);
       const open = Boolean(anchorEl);
 
       const handleChange = (event) => {
@@ -40,6 +41,9 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
       };
       const handleClose = () => {
         setAnchorEl(null);
+      };
+      const handleMemory = (event) => {
+        setMemory(event.target.checked);
       };
 
   return (
@@ -95,15 +99,66 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           }}
           
         >
-          <MenuItem value={'gpt-4-turbo-preview'}> gpt-4-turbo-preview </MenuItem> 
+                    <MenuItem 
+            value={'o1-mini'} 
+            disabled={memory}
+            sx={{ 
+              opacity: memory ? 0.3 : 1,
+            }}
+          > 
+            o1-mini 
+          </MenuItem>
+          <MenuItem 
+            value={'claude-3-5-haiku-20241022'} 
+            disabled={memory}
+            sx={{ 
+              opacity: memory ? 0.3 : 1,
+            }}
+          > 
+            claude-3-5-haiku
+          </MenuItem>
+          <MenuItem 
+            value={'o3-mini'} 
+            disabled={memory}
+            sx={{ 
+              opacity: memory ? 0.3 : 1,
+            }}
+          > 
+            o3-mini
+          </MenuItem>
           <MenuItem value={'gpt-4o-mini'}> gpt-4o-mini </MenuItem>
           <MenuItem value={'gpt-3.5-turbo'}> gpt-3.5-turbo </MenuItem>
           
         </Select>
       </FormControl>
 
+    
+
+
+
 
     </Box> 
+
+    <FormControl sx={{ ml: 2 }}>
+    <FormControlLabel
+      control={
+        <Checkbox 
+          checked={memory} 
+          onChange={handleMemory}
+          size="small" // Make checkbox smaller
+        />
+      }
+      label={
+        <Typography variant="caption">Use Memory</Typography> // Smaller text
+      }
+      sx={{ 
+        mt: 0.5, // Add a small top margin
+        '& .MuiFormControlLabel-label': {
+          fontSize: '0.75rem' // Even smaller text if needed
+        }
+      }}
+    />
+  </FormControl>
            
           
             <Box sx={{ flex:1 }}/>  
