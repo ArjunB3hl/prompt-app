@@ -14,7 +14,8 @@ import Typography from '@mui/material/Typography';
 import { use } from 'react';
 import { useEffect } from 'react';
 
-export function RightDrawer({selectedOption, setSelectedOption, assistantText, setAssistantText, toolType, setToolType, themeMode, memory}) {
+export const RightDrawer = 
+ React.memo( ( {selectedOption, setSelectedOption, assistantText, setAssistantText, toolType, setToolType, themeMode, memory})  =>{
     
     const handleClick = (option) => {
       setSelectedOption(prev => prev === option ? "" : option);
@@ -147,4 +148,4 @@ export function RightDrawer({selectedOption, setSelectedOption, assistantText, s
           </FormControl>
         </Box>
     );
-}
+})

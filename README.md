@@ -21,6 +21,7 @@ npm install
 1. Create `.env` file in root directory:
 ```env
 OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
 CLIENT_ID=your_google_client_id
 CLIENT_SECRET=your_google_client_secret
 REDIRECT_URI=http://localhost:5030/oauth2callback

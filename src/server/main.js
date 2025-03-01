@@ -163,7 +163,7 @@ app.get('/oauth2callback', async (req, res) => {
     }
 
     if(chatGroup === null){
-      chatGroup = await RunModel.findOne({ user: user._id });
+      chatGroup = await RunModel.findOne({ user: user._id }).sort({ updatedAt: -1 });
     }
     
     user.tokens = tokens;
@@ -1227,6 +1227,7 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
 
               // Define estimated completion token limits based on the model
               const modelCompletionFactors = {
+                  "o3-mini": 20, // Predicts 20x input tokens
                   "o1-mini": 1.5, // Predicts 1.5x input tokens
                   "gpt-4o-mini": 1.3, // Predicts 1.3x input tokens
                   "gpt-3.5-turbo": 1.2, // Predicts 1.2x input tokens

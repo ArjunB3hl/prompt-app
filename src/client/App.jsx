@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react'; // Step 1: Import useRef
+import React, { useCallback, useEffect, useRef } from 'react'; // Step 1: Import useRef
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { io } from 'socket.io-client';
-
+import { useMemo } from 'react';
 
 
 
@@ -40,8 +40,10 @@ import { dark } from '@mui/material/styles/createPalette';
 import { LeftDrawer } from './LeftDrawer';
 import { Appbar } from './AppBar';
 import { use } from 'react';
+import { useLocalStorage } from './useLocalStorage';
+import { ChatMessage } from './ChatMessage';
 
-
+import {Home} from './Home';
 
 
 
@@ -53,11 +55,11 @@ const theme = createTheme({
 
 function App() {
   
-  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
+  const [isAuthenticated, setIsAuthenticated] = useLocalStorage('isAuthenticated', false);
   
   const [username, setUsername] = useState('');
   const [chatGroups, setChatGroups] = useState([]);
-  const [currentChatGroupId, setCurrentChatGroupId] = useState(localStorage.getItem('currentChatGroupId'));
+  const [currentChatGroupId, setCurrentChatGroupId] = useLocalStorage('currentChatGroupId', null);
   const [imageData, setImageData] = useState('');
   
   
@@ -73,17 +75,13 @@ function App() {
         <Routes>
           <Route 
             path="/" 
-            element={
-              isAuthenticated ? 
-              <MainApp isAuthenticated={isAuthenticated} 
-              setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} imageData={imageData}  />  : 
-              <Navigate to="/signup" />
-            } 
-          />
+            element={ <Home/>
+            } />
+          <Route path="/c/:chatGroupId"  element= {isAuthenticated ? <MainApp isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} imageData={imageData} /> : <Navigate to="/signup" />} />
           {console.log('chatGroupID is : ', currentChatGroupId)} 
          
-          <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to="/" />} />
-          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} setImageData={setImageData}/> : <Navigate to="/" />} />
+          <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to={`/c/${currentChatGroupId}`} />} />
+          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} setImageData={setImageData}/> : <Navigate to={`/c/${currentChatGroupId}`} />} />
           <Route path="/charts" element= {(isAuthenticated) ? <ChartViewer chatGroups ={chatGroups}  currentChatGroupId ={currentChatGroupId} /> : <Navigate to="/signup" />} />
 
         </Routes>
@@ -95,6 +93,17 @@ function App() {
 
 function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId, setIsAuthenticated, imageData }) {
   // Add new state for messages
+  const { chatGroupId } = useParams();
+  
+  useEffect(() => {
+    // Now you can use the chatGroupId from the URL
+    console.log("Chat group ID from URL:", chatGroupId);
+    
+    // You might want to sync it with your state
+    if (chatGroupId !== currentChatGroupId) {
+      setCurrentChatGroupId(chatGroupId);
+    }
+  }, [chatGroupId]); // Run this effect when chatGroupId changes
   
   const [state, setState] = useState({
     left: false,
@@ -113,6 +122,7 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
   const socketRef = useRef(null); 
   const [send, setSend] = useState(false);
   const [messages, setMessages] = useState([]);
+
   
   
   useEffect(() => {
@@ -174,7 +184,7 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
 
  
 
-  const handleEditing = (id) => {
+  const handleEditing = useCallback ( (id) => {
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
         if (message.id === id && message.sender === 'user') {
@@ -185,9 +195,9 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
       })
     );
     setIsEditing(true);
-  };
+  });
 
-  const handleCancel = (id) => {  
+  const handleCancel = useCallback ( (id) => {  
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
         if (message.id === id && message.sender === 'user') {
@@ -199,9 +209,9 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
     );
    
 
-  }
+  });
 
-  const handleSave = (id, LocalMessage) => {
+  const handleSave = useCallback ((id, LocalMessage) => {
     
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
@@ -289,7 +299,7 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
      
     }
 
-  }
+  });
   
 
 
@@ -693,8 +703,7 @@ const handleSendClick = () => {
         setIsAuthenticated(false);
         setCurrentChatGroupId(null);
         setUsername('');
-        localStorage.setItem('isAuthenticated', false);
-        localStorage.removeItem('currentChatGroupId');
+      
       }
     } catch (error) {
       console.error('Login failed:', error);
@@ -712,15 +721,33 @@ const handleSendClick = () => {
   };
 
 
-  // Modify leftDrawer to show chat groups
-  const leftDrawer = () => (
-    <LeftDrawer setChatGroups={setChatGroups} chatGroups={chatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} themeMode={themeMode} leftWidth={leftWidth} username={username} model={model} />
-  );
+  
 
-  const rightDrawer = () => (
-      <RightDrawer selectedOption={selectedOption} setSelectedOption={setSelectedOption} assistantText = {assistantText}setAssistantText={setAssistantText} toolType={toolType} setToolType={setToolType} themeMode={themeMode} memory={memory} />
-  );
-
+  const leftDrawer = useMemo(() => 
+    <LeftDrawer 
+      setChatGroups={setChatGroups} 
+      chatGroups={chatGroups} 
+      setCurrentChatGroupId={setCurrentChatGroupId} 
+      currentChatGroupId={currentChatGroupId} 
+      themeMode={themeMode} 
+      leftWidth={leftWidth} 
+      username={username} 
+      model={model} 
+    />
+  , [chatGroups, currentChatGroupId, themeMode, leftWidth, username, model]);
+  
+  const rightDrawer = useMemo(() => 
+    <RightDrawer 
+      selectedOption={selectedOption} 
+      setSelectedOption={setSelectedOption} 
+      assistantText={assistantText} 
+      setAssistantText={setAssistantText} 
+      toolType={toolType} 
+      setToolType={setToolType} 
+      themeMode={themeMode} 
+      memory={memory} 
+    />
+  , [selectedOption, assistantText, toolType, setAssistantText, setToolType, themeMode, memory]);
  
   
 
@@ -734,7 +761,7 @@ const handleSendClick = () => {
       }}
       role="presentation"
     >
-      {anchor === 'left' ? leftDrawer() : rightDrawer()}
+      {anchor === 'left' ? leftDrawer : rightDrawer}
     </Box>
   );
   const cardContent = () => (
@@ -743,112 +770,7 @@ const handleSendClick = () => {
   
 
 
-  // Modified ChatMessage component
-  const ChatMessage = ({ message }) => {
-    
-    const [LocalMessage, setLocalMessage] = useState(message.text); 
-    
-    
-    
-    return (
-
-    <Box 
-      sx={{
-        position: 'relative',
-        width: '65vw',
-        display: 'flex',
-        justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-        py: 2,
-       
-        '&:hover .edit-icon': { display: 'block' }
-      }}
-    >
-      {message.file ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '70%' }}>
-          {/* File Name */}
-          <Box
-            sx={{
-              width: 'fit-content',
-              border: `1px solid`,
-              borderRadius: '15px',
-              padding: '3px 5px',
-              wordWrap: 'break-word',
-            }}
-          >
-            <Typography sx={{ fontSize: '0.75rem' }}>{message.file}</Typography>
-          </Box>
-          {/* Text Message */}
-          <Box
-            sx={{
-              width: 'fit-content', 
-              border: `1px solid`,
-              borderRadius: '15px',
-              padding: '10px 15px',
-              wordWrap: 'break-word',
-            }}
-          >
-            <Typography>{message.text}</Typography>
-          </Box>
-     
-        </Box>
-      ) : message.edit? <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%'}}>
-                  <TextField
-                id="input-with-sx"
-                variant="outlined"
-                multiline
-                maxRows={4}
-                value={LocalMessage}
-                onChange={(e) => setLocalMessage(e.target.value)}
-                fullWidth 
-                error={LocalMessage.length > 500}
-                helperText={LocalMessage.length > 500 ? 'Character limit has been reached' : ''}
-
-              />
-              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-            <Button onClick={() => handleSave(message.id,LocalMessage)} variant="contained">
-              Save
-            </Button>
-            <Button onClick = {() => handleCancel(message.id)} >Cancel</Button>
-        
-          </Box>
-
-           
-        </Box>:  (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', maxWidth: message.sender === 'user' ? '70%' : '100%', }}>
-        <Box
-          sx={{
-            width: message.sender === 'user' ? 'fit-content' : "100%",
-            border: message.sender === 'user' ? `1px solid`: '',
-            borderRadius: message.sender === 'user' ? '15px': '',
-            padding: '0px 15px',
-            wordWrap: 'break-word',
-          }}
-        >
-          <Typography> <ReactMarkdown>{message.text}</ReactMarkdown></Typography>
-        </Box>
-        {message.sender === 'user'  && (
-        <Box
-          className="edit-icon"
-          sx={{
-            display: 'none',
-            position: 'absolute',
-            cursor: 'pointer',
-            transform: 'translateX(-30px) scale(0.8)', // moves it slightly left and makes it 80% of its original size
-            opacity: 0.8,
-            
-          }}
-        >
-          {message.sender === 'ai' && message.text==='' && <CircularProgress size="1.5rem" />}
-          { (message.id!==null || message.id!==undefined) && <EditIcon onClick ={ () => handleEditing(message.id )}/> }
-        </Box>
-        
-      ) }
-        </Box>
-      ) } 
-      
-    </Box>
-  )};
-
+  
   // Add messages display area - place this before the input Box component
   const chatContent = () => (
  
@@ -869,7 +791,7 @@ const handleSendClick = () => {
 
         <> 
         
-        <ChatMessage key={index} message={message} /> 
+        <ChatMessage key={index} message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} /> 
         
         
         </>
@@ -909,9 +831,9 @@ const handleSendClick = () => {
     }
   };
 
-  return (
-    <ThemeProvider
-      theme={createTheme({
+  const memoizedTheme = useMemo(
+    () =>
+      createTheme({
         palette: { mode: themeMode },
         components: {
           MuiIconButton: {
@@ -941,7 +863,13 @@ const handleSendClick = () => {
           },
          
         },
-      })}
+      }),
+    [themeMode]
+  );
+
+  return (
+    <ThemeProvider
+      theme={memoizedTheme}
     >
       <CssBaseline />
     <Box sx={{ 

@@ -19,9 +19,6 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         const response = await axios.get("/api/check-auth");
         if (response.data.isAuthenticated) {
           setIsAuthenticated(true);
-          localStorage.setItem("isAuthenticated", true);
-          localStorage.setItem('currentChatGroupId', response.data.chatGroupId);
-          
           setUsername(response.data.username);
           console.log("response.data.chatGroupId", response.data.currentChatGroupId);
           setCurrentChatGroupId(response.data.currentChatGroupId);
@@ -43,7 +40,7 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
   } = useForm({ mode: "onChange" });
 
   
-
+   
   const registerOptions = {
     username: { required: "Username cannot be blank" },
     password: {
@@ -73,8 +70,7 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         setIsAuthenticated(true);
         setUsername(response.data.username);
         setCurrentChatGroupId(response.data.chatGroupId);
-        localStorage.setItem("isAuthenticated", true);
-        localStorage.setItem('currentChatGroupId', response.data.chatGroupId);
+      
         // Optionally, redirect the user or auto-login
       }
     } catch (error) {

@@ -9,9 +9,12 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroupId, themeMode, leftWidth, username, model}){
+export const  LeftDrawer = 
+React.memo( ({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroupId, themeMode, leftWidth, username, model}) => {
 
+    const navigate = useNavigate();
     const createNewChat = async () => {
         try {
           const response = await axios.post('/api/chatgroup', { username, model });
@@ -24,7 +27,7 @@ export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, cu
             const updatedChatGroups = [newChatGroup, ...prevChatGroups];
             return updatedChatGroups;
           });
-          setCurrentChatGroupId(response.data.chatGroupId);
+          navigate(`/c/${response.data.chatGroupId}`); 
     
         } catch (error) {
           console.error('Error creating chat group:', error);
@@ -65,7 +68,7 @@ export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, cu
               >
                 <ListItemButton
                   onClick={() => {
-                    setCurrentChatGroupId(group._id);
+                     navigate(`/c/${group._id}`);
                   }}
                 >
                   <ListItemText 
@@ -84,3 +87,4 @@ export function LeftDrawer({setChatGroups, chatGroups, setCurrentChatGroupId, cu
 
 
 }
+);
