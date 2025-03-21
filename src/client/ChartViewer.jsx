@@ -4,22 +4,24 @@ import React from "react";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import axios from "axios";
-import { FormControl, InputLabel, Select, MenuItem, Grid, Container } from "@mui/material";
+import { FormControl, InputLabel, Select, MenuItem, Grid, Container, TableContainer } from "@mui/material";
 import {
   Chart,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
+  ArcElement,
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line, Pie, Bar } from 'react-chartjs-2';
 import './chartViewer.css'; // We'll create this CSS file next
 
 // Register the chart components we need
-Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+Chart.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export function ChartViewer({ currentChatGroupId }) {  
   const [chatGroups, setChatGroups] = useState([]);
@@ -70,7 +72,6 @@ export function ChartViewer({ currentChatGroupId }) {
     id: chat._id,
     UserMessage: chat.UserMessage,
     AIResponse: chat.AIMessage,
-    fileName: chat.fileName,
     promptTokens: chat.promptTokens,
     completionTokens: chat.completionTokens,
     accuracy: chat.accuracy,
@@ -152,6 +153,9 @@ export function ChartViewer({ currentChatGroupId }) {
   // TokensChart component
   const TokensChart = () => {
     // Create labels (e.g., message index)
+    if (selectedChats.length === 0) {
+      return <div className="no-data-chart">Please select chats to display Token data</div>;
+    }
     const labels = selectedChats.map((_, i) => i + 1);
 
     // Extract prompt tokens and completion tokens arrays
@@ -165,18 +169,18 @@ export function ChartViewer({ currentChatGroupId }) {
         {
           label: 'Prompt Tokens',
           data: promptTokens,
-          borderColor: '#90caf9',
-          backgroundColor: 'rgba(144, 202, 249, 0.1)',
-          borderWidth: 1.5,
+          borderColor: '#0072B2', // Blue - colorblind friendly
+          backgroundColor: 'rgba(0, 114, 178, 0.1)',
+          borderWidth: 3, // Bolder line
           tension: 0.3,
           fill: true,
         },
         {
           label: 'Completion Tokens',
           data: completionTokens,
-          borderColor: '#ce93d8',
-          backgroundColor: 'rgba(206, 147, 216, 0.1)',
-          borderWidth: 1.5,
+          borderColor: '#E69F00', // Orange - colorblind friendly
+          backgroundColor: 'rgba(230, 159, 0, 0.1)',
+          borderWidth: 3, // Bolder line
           tension: 0.3,
           fill: true,
         },
@@ -252,9 +256,9 @@ export function ChartViewer({ currentChatGroupId }) {
         {
           label: 'Accuracy',
           data: accuracyData,
-          borderColor: '#4caf50',
-          backgroundColor: 'rgba(76, 175, 80, 0.1)',
-          borderWidth: 1.5,
+          borderColor: '#009E73', // Bluish green - colorblind friendly
+          backgroundColor: 'rgba(0, 158, 115, 0.1)',
+          borderWidth: 3, // Bolder line
           tension: 0.3,
           fill: true,
         },
@@ -294,19 +298,16 @@ export function ChartViewer({ currentChatGroupId }) {
         y: {
           title: {
             display: true,
-            text: 'Accuracy Score',
+            text: 'Accuracy Score (1-10)',
             color: '#ffffff'
           },
           min: 0,
-          max: 1,
+          max: 10,
           grid: {
             color: 'rgba(255, 255, 255, 0.1)'
           },
           ticks: {
-            color: '#ffffff',
-            callback: function(value) {
-              return (value * 100) + '%';
-            }
+            color: '#ffffff'
           }
         },
       },
@@ -334,9 +335,9 @@ export function ChartViewer({ currentChatGroupId }) {
         {
           label: 'Coherence',
           data: coherenceData,
-          borderColor: '#ff9800',
-          backgroundColor: 'rgba(255, 152, 0, 0.1)',
-          borderWidth: 1.5,
+          borderColor: '#CC79A7', // Reddish purple - colorblind friendly
+          backgroundColor: 'rgba(204, 121, 167, 0.1)',
+          borderWidth: 3, // Bolder line
           tension: 0.3,
           fill: true,
         },
@@ -376,19 +377,16 @@ export function ChartViewer({ currentChatGroupId }) {
         y: {
           title: {
             display: true,
-            text: 'Coherence Score',
+            text: 'Coherence Score (1-10)',
             color: '#ffffff'
           },
           min: 0,
-          max: 1,
+          max: 10,
           grid: {
             color: 'rgba(255, 255, 255, 0.1)'
           },
           ticks: {
-            color: '#ffffff',
-            callback: function(value) {
-              return (value * 100) + '%';
-            }
+            color: '#ffffff'
           }
         },
       },
@@ -416,9 +414,9 @@ export function ChartViewer({ currentChatGroupId }) {
         {
           label: 'Relevance',
           data: relevanceData,
-          borderColor: '#f44336',
-          backgroundColor: 'rgba(244, 67, 54, 0.1)',
-          borderWidth: 1.5,
+          borderColor: '#D55E00', // Vermilion - colorblind friendly
+          backgroundColor: 'rgba(213, 94, 0, 0.1)',
+          borderWidth: 3, // Bolder line
           tension: 0.3,
           fill: true,
         },
@@ -458,19 +456,16 @@ export function ChartViewer({ currentChatGroupId }) {
         y: {
           title: {
             display: true,
-            text: 'Relevance Score',
+            text: 'Relevance Score (1-10)',
             color: '#ffffff'
           },
           min: 0,
-          max: 1,
+          max: 10,
           grid: {
             color: 'rgba(255, 255, 255, 0.1)'
           },
           ticks: {
-            color: '#ffffff',
-            callback: function(value) {
-              return (value * 100) + '%';
-            }
+            color: '#ffffff'
           }
         },
       },
@@ -521,19 +516,22 @@ export function ChartViewer({ currentChatGroupId }) {
         {
           label: 'Accuracy',
           data: modelData.map(item => item.accuracy),
-          backgroundColor: 'rgba(76, 175, 80, 0.7)',
+          backgroundColor: 'rgba(0, 158, 115, 0.7)', // Bluish green - colorblind friendly
+          borderColor: '#009E73',
           borderWidth: 1,
         },
         {
           label: 'Relevance',
           data: modelData.map(item => item.relevance),
-          backgroundColor: 'rgba(244, 67, 54, 0.7)',
+          backgroundColor: 'rgba(213, 94, 0, 0.7)', // Vermilion - colorblind friendly
+          borderColor: '#D55E00',
           borderWidth: 1,
         },
         {
           label: 'Coherence',
           data: modelData.map(item => item.coherence),
-          backgroundColor: 'rgba(255, 152, 0, 0.7)',
+          backgroundColor: 'rgba(204, 121, 167, 0.7)', // Reddish purple - colorblind friendly
+          borderColor: '#CC79A7',
           borderWidth: 1,
         },
       ],
@@ -572,19 +570,16 @@ export function ChartViewer({ currentChatGroupId }) {
         y: {
           title: {
             display: true,
-            text: 'Score',
+            text: 'Score (1-10)',
             color: '#ffffff'
           },
           min: 0,
-          max: 1,
+          max: 10,
           grid: {
             color: 'rgba(255, 255, 255, 0.1)'
           },
           ticks: {
-            color: '#ffffff',
-            callback: function(value) {
-              return (value * 100) + '%';
-            }
+            color: '#ffffff'
           }
         },
       },
@@ -592,7 +587,7 @@ export function ChartViewer({ currentChatGroupId }) {
 
     return (
       <div className="chart-container">
-        <Line data={data} options={options} />
+        <Bar data={data} options={options} />
       </div>
     );
   };
@@ -641,9 +636,7 @@ export function ChartViewer({ currentChatGroupId }) {
       };
     });
 
-    const labels = chatCosts.map((_, i) => i + 1);
-    
-    // Group by model for stacked view
+    // Group by model for line chart
     const modelGroups = {};
     chatCosts.forEach(chat => {
       if (!modelGroups[chat.model]) {
@@ -653,85 +646,86 @@ export function ChartViewer({ currentChatGroupId }) {
       modelGroups[chat.model][index] = chat.cost;
     });
 
-    // Create datasets for each model
-    const datasets = Object.keys(modelGroups).map((model, index) => {
-      const colors = [
-        '#4caf50', '#f44336', '#ff9800', '#2196f3', '#9c27b0', '#00bcd4'
-      ];
-      
+    // Prepare data for pie chart
+    const modelTotalCosts = {};
+    const modelRequestCounts = {};
+    
+    chatCosts.forEach(chat => {
+      if (!modelTotalCosts[chat.model]) {
+        modelTotalCosts[chat.model] = 0;
+        modelRequestCounts[chat.model] = 0;
+      }
+      modelTotalCosts[chat.model] += chat.cost;
+      modelRequestCounts[chat.model]++;
+    });
+
+    // Colorblind-friendly palette
+    const colors = [
+      '#0072B2', // Blue
+      '#E69F00', // Orange
+      '#009E73', // Bluish green
+      '#D55E00', // Vermilion
+      '#CC79A7', // Reddish purple
+      '#56B4E9'  // Sky blue
+    ];
+
+    // Create datasets for line chart
+    const lineDatasets = Object.keys(modelGroups).map((model, index) => {
       return {
         label: model,
         data: modelGroups[model],
         backgroundColor: colors[index % colors.length],
         borderColor: colors[index % colors.length],
-        borderWidth: 1.5,
+        borderWidth: 3, // Bolder line
       };
     });
 
-    const data = {
-      labels,
-      datasets,
+    // Create data for pie chart
+    const pieData = {
+      labels: Object.keys(modelTotalCosts),
+      datasets: [
+        {
+          data: Object.values(modelTotalCosts),
+          backgroundColor: Object.keys(modelTotalCosts).map((_, index) => colors[index % colors.length]),
+          borderWidth: 1,
+        },
+      ],
     };
 
-    const options = {
+    const pieOptions = {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: 'top',
+          position: 'right',
           labels: {
             color: '#ffffff'
           }
         },
         title: {
           display: true,
-          text: 'Cost Analysis',
+          text: 'Cost by Model',
           color: '#ffffff'
         },
         tooltip: {
           callbacks: {
             label: function(context) {
-              return `${context.dataset.label}: $${context.raw.toFixed(6)}`;
+              const model = context.label;
+              const cost = context.raw.toFixed(6);
+              const count = modelRequestCounts[model];
+              return [`Model: ${model}`, `Cost: $${cost}`, `Requests: ${count}`];
             }
           }
         }
       },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: 'Message Index',
-            color: '#ffffff'
-          },
-          grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
-          },
-          ticks: {
-            color: '#ffffff'
-          }
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'Cost (USD)',
-            color: '#ffffff'
-          },
-          grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
-          },
-          ticks: {
-            color: '#ffffff',
-            callback: function(value) {
-              return '$' + value.toFixed(6);
-            }
-          }
-        },
-      },
     };
+
+   
+        
 
     return (
       <div className="chart-container">
-        <Line data={data} options={options} />
+        <Pie data={pieData} options={pieOptions} />
       </div>
     );
   };
@@ -839,11 +833,31 @@ export function ChartViewer({ currentChatGroupId }) {
             )}
             
             <Grid item xs={12}>
-              <div className="custom-table-container">
+              <TableContainer 
+                component={Paper} 
+                sx={{ 
+                  maxHeight: 500, 
+                  backgroundColor: '#121212',
+                  '&::-webkit-scrollbar': {
+                    width: '8px',
+                    height: '8px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: '#121212',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: '#333',
+                    borderRadius: '4px',
+                  },
+                  '&::-webkit-scrollbar-thumb:hover': {
+                    background: '#555',
+                  }
+                }}
+              >
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th className="checkbox-column">
+                      <th className="checkbox-column" style={{ width: '40px' }}>
                         <div className="checkbox-header">
                           <div 
                             className={`checkbox ${selectedRows.length === rows.length && rows.length > 0 ? 'checked' : ''}`}
@@ -851,17 +865,15 @@ export function ChartViewer({ currentChatGroupId }) {
                           ></div>
                         </div>
                       </th>
-                      <th>ID</th>
-                      <th>User Message</th>
-                      <th>AI Response</th>
-                      <th>File Name</th>
-                      <th>Prompt Tokens</th>
-                      <th>Completion Tokens</th>
-                      <th>Accuracy</th>
-                      <th>Relevance</th>
-                      <th>Coherence</th>
-                      <th>Tool Use</th>
-                      <th>Model</th>
+                      {/* ID column removed */}
+                      <th style={{ width: '20%' }}>User Message</th>
+                      <th style={{ width: '45%' }}>AI Response</th>
+                      <th style={{ width: '5%' }}>Prompt Tokens</th>
+                      <th style={{ width: '8%' }}>Completion Tokens</th>
+                      <th style={{ width: '7%' }}>Accuracy</th>
+                      <th style={{ width: '7%' }}>Relevance</th>
+                      <th style={{ width: '7%' }}>Coherence</th>
+                      <th style={{ width: '9%' }}>Model</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -877,27 +889,58 @@ export function ChartViewer({ currentChatGroupId }) {
                               <div className={`checkbox ${selectedRows.includes(row.id) ? 'checked' : ''}`}></div>
                             </div>
                           </td>
-                          <td>{row.id}</td>
-                          <td className="message-cell" title={row.UserMessage}>{row.UserMessage}</td>
-                          <td className="message-cell" title={row.AIResponse}>{row.AIResponse}</td>
-                          <td>{row.fileName}</td>
+                          {/* ID cell removed */}
+                          <td style={{ width: '25%' }}>
+                            <Box className="message-cell" sx={{ 
+                              width: '100%',
+                              maxWidth: '300px',
+                              whiteSpace: 'nowrap',
+                              textOverflow: 'clip',
+                              maxHeight: '80px',
+                              overflowX: 'auto',
+                              overflowY: 'hidden',
+                              '&::-webkit-scrollbar': {
+                                width: '0px',
+                                height: '0px',
+                              }
+                            }}>
+                              {row.UserMessage}
+                            </Box>
+                          </td>
+                          <td style={{ width: '45%' }}>
+                            <Box className="message-cell" sx={{ 
+                              width: '100%',
+                              maxWidth: '100%',
+                              whiteSpace: 'nowrap',
+                              textOverflow: 'clip',
+                              maxHeight: '80px',
+                              overflowX: 'auto',
+                              overflowY: 'hidden',
+                              '&::-webkit-scrollbar': {
+                                width: '0px',
+                                height: '0px',
+                              },
+                              
+                            }}>
+                              {row.AIResponse}
+                            </Box>
+                          </td>
                           <td className="number-cell">{row.promptTokens}</td>
                           <td className="number-cell">{row.completionTokens}</td>
                           <td className="number-cell">{row.accuracy}</td>
                           <td className="number-cell">{row.relevance}</td>
                           <td className="number-cell">{row.coherence}</td>
-                          <td className="boolean-cell">{row.toolUse ? 'Yes' : 'No'}</td>
                           <td>{row.model}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="12" className="no-data">No data available</td>
+                        <td colSpan="11" className="no-data">No data available</td> {/* Updated colspan from 12 to 11 */}
                       </tr>
                     )}
                   </tbody>
                 </table>
-              </div>
+              </TableContainer>
             </Grid>
           </Grid>
         </Box>
