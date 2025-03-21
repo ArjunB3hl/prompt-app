@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -19,9 +19,13 @@ import Select from '@mui/material/Select';
 import { FormControl } from '@mui/material';
 import InputLabel from '@mui/material/InputLabel';
 import Checkbox from '@mui/material/Checkbox';
+import axios from 'axios';
 
-
-
+import GavelIcon from '@mui/icons-material/Gavel';
+import CircularProgress from '@mui/material/CircularProgress';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import Tooltip from '@mui/material/Tooltip';
 
 
 export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode, setThemeMode, username, handleLogOut, model, setModel,imageData,setMemory, memory}) {
@@ -30,6 +34,33 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
     
       const [anchorEl, setAnchorEl] = React.useState(null);
       const open = Boolean(anchorEl);
+      const [isJudging, setIsJudging] = useState(false);
+      const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+
+  // ... existing handlers
+
+  const handleJudgeAll = async () => {
+    try {
+      setIsJudging(true);
+      const response = await axios.post('/api/judgeMass');
+      setSnackbarMessage(`Judgment complete! Judged: ${response.data.stats.judged}, Skipped: ${response.data.stats.skipped}`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error('Error judging messages:', error);
+      setSnackbarMessage('Failed to judge messages');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsJudging(false);
+    }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
 
       const handleChange = (event) => {
    
@@ -159,6 +190,23 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
       }}
     />
   </FormControl>
+{/* Add Gavel Icon Button here */}
+<Tooltip title="Judge all messages">
+          <IconButton 
+            color="inherit" 
+            onClick={handleJudgeAll}
+            disabled={isJudging}
+            size="small"
+            sx={{ ml: 1 }}
+          >
+            {isJudging ? <CircularProgress size={20} color="inherit" /> : <GavelIcon />}
+          </IconButton>
+        </Tooltip>
+
+  
+
+
+
            
           
             <Box sx={{ flex:1 }}/>  
@@ -225,6 +273,18 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
            
 
             </Toolbar>
+
+            {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbarOpen} 
+        autoHideDuration={6000} 
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
           </AppBar>
   );
 }

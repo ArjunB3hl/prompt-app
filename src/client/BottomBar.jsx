@@ -174,16 +174,16 @@ export function BottomBar({ selectedFile, setSelectedFile, currentChatGroupId, i
 
     <TextField
           id="input-with-sx"
-          label={isGenerating ? '' : inputValue.length === 0 ? "Add a prompt" : "Token Count: " + characterTokens}
+          label={isGenerating ? '' : inputValue.length === 0 ? "" : "Token Count: " + characterTokens}
           variant="standard"
           fullWidth
           multiline
           maxRows={7}
           value={isGenerating ? '' : inputValue}
           onChange={(e) => !isGenerating && setInputValue(e.target.value)}
-          onKeyDown={!isGenerating && !send  && ((model === "gpt-4o-mini" || model === "gpt-3.5-turbo") || memory === false) ? handleKeyPress : null}
+          onKeyDown={!isGenerating && !send  && ((model === "gpt-4o-mini" || model === "gpt-3.5-turbo" ) || memory === false) ? handleKeyPress : null}
           error={inputValue.length > 3000 || (!(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") && memory === true)}
-          helperText={inputValue.length > 3000 ? 'Character limit has been reached' : !(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") && memory === true  ? 'Memory is not availble with these models' : ''}  
+          helperText={inputValue.length > 3000 ? 'Character limit has been reached' : !(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") && memory === true  ? 'Memory is not availble with these models' : ''} 
           sx={{
             flex: 1,
             "& .MuiInputBase-root": {
@@ -193,8 +193,14 @@ export function BottomBar({ selectedFile, setSelectedFile, currentChatGroupId, i
 
           slotProps={{
             readOnly: isGenerating,
+            inputLabel: {
+              style: { color: themeMode === 'dark' ? '#fff' : '#000', fontSize: '18px' },
+
+            },
     
           }}
+
+          
         />
 
 {isGenerating && (

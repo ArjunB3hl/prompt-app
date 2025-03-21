@@ -35,8 +35,16 @@ const RunSchema = new Schema({
         model:{
             type: String,
         },
-       
-
+        memory: {
+            type: Boolean,
+        },
+        assistant : {
+            type: String,
+        },
+        tool: {
+            type: String,
+        },
+        
         messages: [
             
             {

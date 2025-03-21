@@ -44,6 +44,7 @@ import { useLocalStorage } from './useLocalStorage';
 import { ChatMessage } from './ChatMessage';
 
 import {Home} from './Home';
+import { set } from 'mongoose';
 
 
 
@@ -109,7 +110,7 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
     left: false,
     right: false,
   });
-  const [model, setModel] = useState('gpt-3.5-turbo');
+  const [model, setModel] = useState('gpt-4o-mini');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null); // Step 2: Define ref
   const [selectedFile, setSelectedFile] = useState(null); // new state
@@ -234,14 +235,14 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
       if(memory === true){
       
      eventSource = new EventSource(
-        `/api/chat?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id}`
+        `/api/chat?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id} `
       );
     }
 
     else{
 
       eventSource = new EventSource(
-        `/api/chatCompletion?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id}`
+        `/api/chatCompletion?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id} `
       );
     }
 
@@ -422,11 +423,30 @@ useEffect(() => {
           setChat(true);
         }
         setMessages(response.data.messages.map( (chat, index) => ([
-          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false},
+          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse },
           { text: chat.AIMessage, sender: 'ai', id: chat._id },
          
         ])).flat());
         setModel(response.data.model);
+        setMemory(response.data.memory);
+  
+        if(response.data.assistant !== "" && response.data.assistant !== undefined){
+          setAssistantText(response.data.assistant);
+          setSelectedOption("Role prompting");
+
+        }
+        
+       
+        else if(response.data.tool !== "" && response.data.tool !== undefined){
+          setToolType(response.data.tool);
+          setSelectedOption("React prompting");
+        }
+        else{
+          setAssistantText("");
+          setToolType("");
+          setSelectedOption("");
+        }
+
       
       } catch (error) {
         console.error('Error loading chats:', error);
@@ -508,6 +528,8 @@ const handleSendClick = () => {
           
          const userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false, id: null} : { text: tempValue, sender: 'user' , edit: false, id: null};
          setMessages([...messages, userMessage]);
+         setChat(true);
+        
         
        
         try {
@@ -520,13 +542,12 @@ const handleSendClick = () => {
            console.error('Error calculating tokens:', error);
          }
 
+         setSend(true);
+         setSelectedFile(null);
+         setLoader(true);
+         setNameChatGroup(true);
        
-       
-        setChat(true);
-        setSend(true);
-        setSelectedFile(null);
-        setLoader(true);
-        setNameChatGroup(true);
+        
 
         
         try {
@@ -537,10 +558,10 @@ const handleSendClick = () => {
 
                     if(memory === true){
 
-                            eventSource = new EventSource(`/api/chat?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&technique=${selectedOption}&assistant=${assistantText}`); 
+                            eventSource = new EventSource(`/api/chat?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&technique=${selectedOption}&assistant=${assistantText} `); 
                     }
                     else{
-                            eventSource = new EventSource(`/api/chatCompletion?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}`);
+                            eventSource = new EventSource(`/api/chatCompletion?prompt=${encodeURIComponent(userMessage.text)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}  `);
                     }
                           eventSourceRef.current = eventSource;
                           
@@ -624,6 +645,9 @@ const handleSendClick = () => {
                   setMessages((prevMessages) => 
                     prevMessages.map((msg) => {
                       if ( msg.id === null) {
+                        if (msg.sender === 'user') {
+                          return { ...msg, id: data.id, toolUse: true };
+                        }
                         return { ...msg, id: data.id };
                       }
                       return msg;
@@ -746,6 +770,7 @@ const handleSendClick = () => {
       setToolType={setToolType} 
       themeMode={themeMode} 
       memory={memory} 
+      imageData={imageData}
     />
   , [selectedOption, assistantText, toolType, setAssistantText, setToolType, themeMode, memory]);
  

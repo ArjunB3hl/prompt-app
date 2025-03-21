@@ -1,0 +1,186 @@
+/* Chart Container */
+.chart-container {
+  width: 100%;
+  max-width: 900px;
+  height: 400px;
+  padding: 20px;
+  margin-bottom: 30px;
+  background-color: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* No Data Chart Message */
+.no-data-chart {
+  width: 100%;
+  max-width: 900px;
+  height: 400px;
+  padding: 20px;
+  margin-bottom: 30px;
+  background-color: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+}
+
+/* Custom Table Container */
+.custom-table-container {
+  width: 100%;
+  height: 500px;
+  overflow: auto;
+  background-color: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.custom-table-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom Table */
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #ffffff;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+/* Table Headers */
+.custom-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.custom-table th {
+  padding: 12px 16px;
+  text-align: left;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 500;
+}
+
+/* Table Cells */
+.custom-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+/* Message Cells (with ellipsis for long text) */
+.message-cell {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Number Cells (right-aligned) */
+.number-cell {
+  text-align: right;
+}
+
+/* Boolean Cells (centered) */
+.boolean-cell {
+  text-align: center;
+}
+
+/* Row Hover and Selection */
+.custom-table tbody tr {
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.custom-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.custom-table tbody tr.selected {
+  background-color: rgba(144, 202, 249, 0.08);
+}
+
+/* Checkbox Column */
+.checkbox-column {
+  width: 40px;
+  text-align: center;
+}
+
+/* Custom Checkbox */
+.custom-checkbox, .checkbox-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.checkbox:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.checkbox.checked {
+  background-color: #90caf9;
+  border-color: #90caf9;
+}
+
+.checkbox.checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* No Data Message */
+.no-data {
+  text-align: center;
+  padding: 40px !important;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .custom-table th,
+  .custom-table td {
+    padding: 8px;
+  }
+  
+  .chart-container,
+  .no-data-chart {
+    height: 300px;
+  }
+}
+
+/* Responsive table for smaller screens */
+@media (max-width: 1200px) {
+  .custom-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

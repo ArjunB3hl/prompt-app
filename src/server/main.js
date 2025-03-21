@@ -1,4 +1,4 @@
-import express from "express";
+import express, { response } from "express";
 import ViteExpress from "vite-express";
 
 import mongoose from "mongoose";
@@ -15,6 +15,9 @@ import { encoding_for_model } from "@dqbd/tiktoken";
 import EventHandlerMail from "../functions/mail.js";
 import EventHandlerDocument from "../functions/doc.js";
 import Anthropic from '@anthropic-ai/sdk';
+import MongoStore from "connect-mongo";
+import { zodResponseFormat } from "openai/helpers/zod";
+import { z } from "zod";
 
 import "dotenv/config"; // Loads environment variables from .env
 import OpenAI from "openai";
@@ -88,6 +91,13 @@ const sessionConfig = {
     expires: Date.now() + 1000 * 60 * 60 * 24 * 7,
     maxAge: 1000 * 60 * 60 * 24 * 7,
   },
+ 
+  store: MongoStore.create({
+    // Using a dedicated URL (e.g., "sessions" database) to isolate session data
+    mongoUrl: "mongodb://localhost:27017/sessions", 
+    ttl: 14 * 24 * 60 * 60, // Sessions expire after 14 days
+  }),
+  
 };
 app.use(session(sessionConfig));
 
@@ -148,7 +158,7 @@ app.get('/oauth2callback', async (req, res) => {
             // Create a new thread and assistant for this user
           const emptyThread = await openai.beta.threads.create();
           const myAssistant = await openai.beta.assistants.create({
-            model: "gpt-3.5-turbo",
+            model: "gpt-4o-mini",
             
           });
 
@@ -156,7 +166,7 @@ app.get('/oauth2callback', async (req, res) => {
           const chatGroup = new RunModel({
             name: "New Chat",
             user: user._id,
-            run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-3.5-turbo" },
+            run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
           });
           await chatGroup.save();
 
@@ -171,7 +181,7 @@ app.get('/oauth2callback', async (req, res) => {
     // Set session or perform other state management as needed
     req.session.userId = user._id; 
     req.session.currentChatGroupId = chatGroup._id;
-    res.redirect(`http://localhost:5030`);
+    res.redirect(`http://localhost:5030/signup`);
     
   } catch (error) {
     console.error('Error during Google auth callback:', error);
@@ -208,7 +218,7 @@ app.post("/api/signup", async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
        
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",
         
       }),
       openai.beta.threads.create()
@@ -218,7 +228,7 @@ app.post("/api/signup", async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-3.5-turbo" },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
     });
     await chatGroup.save();
 
@@ -304,7 +314,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
       
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",
         
       }),
       openai.beta.threads.create()
@@ -315,7 +325,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : req.body.model },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "gpt-4o-mini", memory: true },
     });
     await chatGroup.save();
     req.session.currentChatGroupId = chatGroup._id;
@@ -325,6 +335,70 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
+  try {
+    let chatGroup = await RunModel.findById(req.params.chatGroupId);
+    
+  
+    if (!chatGroup) {
+
+      return res.status(404).json({ error: "Chat group not found" });
+    }
+
+    await RunModel.deleteOne({ _id: req.params.chatGroupId });
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+ 
+    if(req.session.currentChatGroupId === req.params.chatGroupId && chatGroups.length > 0){
+      chatGroup = await RunModel.findOne({ user: req.session.userId }).sort({ updatedAt: -1 });
+      req.session.currentChatGroupId = chatGroup._id;
+    }
+    else if(chatGroups.length === 0){
+
+       // Create a new thread and assistant for this user
+    const [myAssistant, emptyThread] = await Promise.all([
+      openai.beta.assistants.create({
+       
+        model: "gpt-4o-mini",
+        
+      }),
+      openai.beta.threads.create()
+    ]);
+
+    // Create a default chat group for the new user
+     chatGroup = new RunModel({
+      name: "New Chat",
+      user: req.session.userId,
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+    });
+    await chatGroup.save();
+
+
+    }
+
+
+    res.json({ message: "Chat group deleted", chatGroupId: chatGroup._id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
+  try {
+    const chatGroup = await RunModel.findById(req.params.chatGroupId);
+    if (!chatGroup) {
+      return res.status(404).json({ error: "Chat group not found" });
+    }
+    chatGroup.name = req.body.name;
+    await chatGroup.save();
+    res.json({ message: "Chat group renamed" });
+  } catch (error) {
+
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 
 // Modify check-auth to include chat groups
 app.get("/api/check-auth", async (req, res) => {
@@ -353,6 +427,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { type } from "os";
+import { chat } from "googleapis/build/src/apis/chat/index.js";
 
 // Configure Multer for file uploads
 const storage = multer.diskStorage({
@@ -513,97 +588,59 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
     // Extract query parameters (note: currentChatGroupId comes from client)
     const {  prompt, currentChatGroupId, tool} = req.query;
     const responseData = {  prompt, currentChatGroupId,tool};
+    let aiMessage = "";
+    let promptTokens = 0;
+    let completionTokens = 0;
 
-    // Find the run by chat group ID
-      const run = await RunModel.findById(responseData.currentChatGroupId);
-      if (!run) {
-        res.write(
-          `event: error\ndata: ${JSON.stringify({ error: "Run not found" })}\n\n`
-        );
-        res.end();
-        return;
-      }
+    if(responseData.tool !== 'search'){
+              // Find the run by chat group ID
+                const run = await RunModel.findById(responseData.currentChatGroupId);
+                if (!run) {
+                  res.write(
+                    `event: error\ndata: ${JSON.stringify({ error: "Run not found" })}\n\n`
+                  );
+                  res.end();
+                  return;
+                }
 
-      const user = await UserModel.findById(req.session.userId);
-      const subRunPromises = [];
+                const user = await UserModel.findById(req.session.userId);
+                const subRunPromises = [];
 
-      // Create our event handler, passing in the client and SSE response
-      let eventHandler = null;
-     if(responseData.tool !== ''){
-        console.log("Tool: ", responseData.tool);
-        if(responseData.tool === "mail"){
-          await openai.beta.assistants.update(run.run.AssistantId, {
-            model: "gpt-4o",
-  instructions:
-    "You are a weather bot. Use the provided functions to answer questions.",
-  tools: [
-    {
-      type: "function",
-      function: {
-        name: "setEmail",
-        description: "Read/write or both to the given email by the user",
-        parameters: {
-          type: "object",
-          properties: {
-            instruction: {
-              type: "string",
-              enum: ["Read", "Write"],
-              description: "The instruction to set the email eg, 'Read' or 'Write' ",
-            },
-            email: {
-              type: "string",
-              description:
-                "The email address specified by the user eg, ending with @gmail.com",
-            },
-            emailContent: {
-              type: "string",
-              description: "if it involves writing, write what the user has specified for you to write",
-            },
-
-          },
-          required: ["instruction", "email", "emailContent"],
-          additionalProperties: false
-        },
-        strict: true
-      },
-    }
-  ],
-
-        });
-
-        eventHandler = new EventHandlerMail(openai, res, subRunPromises,user.tokens);
-      }
-        if(responseData.tool === "document"){
-        
-          await openai.beta.assistants.update(run.run.AssistantId, {
-            model: "gpt-4o",
-            instructions: "Append, Create or Read  the document as specified by the user",
+                // Create our event handler, passing in the client and SSE response
+                let eventHandler = null;
+              if(responseData.tool !== ''){
+                  console.log("Tool: ", responseData.tool);
+                  if(responseData.tool === "mail"){
+                    await openai.beta.assistants.update(run.run.AssistantId, {
+                      model: "gpt-4o",
+            instructions:
+              "You are a weather bot. Use the provided functions to answer questions.",
             tools: [
               {
                 type: "function",
                 function: {
-                  name: "setDocument",
-                  description: "Append/Create/Read given instruction by the user",
+                  name: "setEmail",
+                  description: "Read/write or both to the given email by the user",
                   parameters: {
                     type: "object",
                     properties: {
                       instruction: {
                         type: "string",
-                        enum: ["Append", "Create", "Read"],
-                        description: "The instruction for the document eg, 'Append', 'Create' or 'Read'  ",
+                        enum: ["Read", "Write"],
+                        description: "The instruction to set the email eg, 'Read' or 'Write' ",
                       },
-                      title: {
+                      email: {
                         type: "string",
                         description:
-                          "The document title specified by the user or create one using the response ",
+                          "The email address specified by the user eg, ending with @gmail.com",
                       },
-                      content: {
+                      emailContent: {
                         type: "string",
-                        description: "if it involves appending a existing document or creating one, write what the user has specified for you to write",
+                        description: "if it involves writing, write what the user has specified for you to write",
                       },
-          
+
                     },
-                    required: ["instruction", "title", "content"],
+                    required: ["instruction", "email", "emailContent"],
                     additionalProperties: false
                   },
                   strict: true
@@ -611,68 +648,152 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
               }
             ],
 
-      });
-      eventHandler = new EventHandlerDocument(openai, res, subRunPromises,user.tokens);
-    }
+                  });
+
+                  eventHandler = new EventHandlerMail(openai, res, subRunPromises,user.tokens);
+                }
+                  if(responseData.tool === "document"){
+                  
+                    await openai.beta.assistants.update(run.run.AssistantId, {
+                      model: "gpt-4o",
+                      instructions: "Append, Create or Read  the document as specified by the user",
+                      tools: [
+                        {
+                          type: "function",
+                          function: {
+                            name: "setDocument",
+                            description: "Append/Create/Read given instruction by the user",
+                            parameters: {
+                              type: "object",
+                              properties: {
+                                instruction: {
+                                  type: "string",
+                                  enum: ["Append", "Create", "Read"],
+                                  description: "The instruction for the document eg, 'Append', 'Create' or 'Read'  ",
+                                },
+                                title: {
+                                  type: "string",
+                                  description:
+                                    "The document title specified by the user or create one using the response ",
+                                },
+                                content: {
+                                  type: "string",
+                                  description: "if it involves appending a existing document or creating one, write what the user has specified for you to write",
+                                },
+                    
+                              },
+                              required: ["instruction", "title", "content"],
+                              additionalProperties: false
+                            },
+                            strict: true
+                          },
+                        }
+                      ],
+
+                });
+                eventHandler = new EventHandlerDocument(openai, res, subRunPromises,user.tokens);
+              }
+            }
+                
+                
+
+
+              // Add the user's message to the existing thread
+              await openai.beta.threads.messages.create(run.run.threadId, {
+                role: "user",
+                content: responseData.prompt,
+              });
+
+              // Create a new run with the assistant
+
+              
+              
+              
+          
+
+              // Bind the event handler's onEvent to the "event" event
+              eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
+
+              // Start the main run stream
+              const newRun = await openai.beta.threads.runs.stream(
+                run.run.threadId,
+                {
+                  assistant_id: run.run.AssistantId,
+                  model: responseData.model,
+                },
+                eventHandler
+              );
+
+              // Process events from the main run
+              try {
+                for await (const event of newRun) {
+                  // Emit the event so that the event handler can check for required actions
+                  eventHandler.emit("event", event);
+
+                }
+              } catch (error) {
+                if (error.name === "AbortError") {
+                  console.log("OpenAI API request aborted");
+                } else {
+                  console.error("Error processing main run stream:", error);
+                }
+              }
+
+              // Wait for any sub-run (tool outputs) streams to finish
+              if (subRunPromises.length > 0) {
+                console.log("Waiting for sub-run streams to finish...");
+                await Promise.all(subRunPromises);
+              }
+              aiMessage = eventHandler.tempObj.aiMessage;
+              promptTokens = eventHandler.tempObj.promptTokens;
+              completionTokens = eventHandler.tempObj.completionTokens;
+
   }
-      
-      
+
+  else{
+        // Search events
+
+        const obj = {
+          model: "gpt-4o-search-preview",
+          web_search_options: {},
+          messages: [
+            {"role": "user", "content": responseData.prompt}
+          ],
+          stream: true,
+          stream_options: {
+            include_usage: true,
+          }
+        };
+
+        const completion = await openai.chat.completions.create(obj);
+        try{
+          for await (const chunk of completion) {
+            const content = chunk.choices[0]?.delta?.content;
+            promptTokens = chunk.usage?.prompt_tokens;
+            completionTokens = chunk.usage?.completion_tokens;
+            if(chunk.usage !== undefined){
+              console.log("Prompt tokens: ", promptTokens);
+              console.log("Completion tokens: ", completionTokens);
+            }
+            
+            if (content) {
+              aiMessage += content;
+              res.write(`data: ${JSON.stringify({ content })}\n\n`);
+            }
+          }
+        } catch (error) {
+          if (error.name === 'AbortError') {
+            console.log('OpenAI API request aborted');
+          } else {
+            console.error("Error processing stream:", error);
+          }
+        }
 
 
-    // Add the user's message to the existing thread
-    await openai.beta.threads.messages.create(run.run.threadId, {
-      role: "user",
-      content: responseData.prompt,
-    });
 
-    // Create a new run with the assistant
-
+  }
     
-    let aiMessage = "";
-    let promptTokens = 0;
-    let completionTokens = 0;
     
- 
-
-    // Bind the event handler's onEvent to the "event" event
-    eventHandler.on("event", eventHandler.onEvent.bind(eventHandler));
-
-    // Start the main run stream
-    const newRun = await openai.beta.threads.runs.stream(
-      run.run.threadId,
-      {
-        assistant_id: run.run.AssistantId,
-        model: responseData.model,
-      },
-      eventHandler
-    );
-
-    // Process events from the main run
-    try {
-      for await (const event of newRun) {
-        // Emit the event so that the event handler can check for required actions
-        eventHandler.emit("event", event);
-
-      }
-    } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("OpenAI API request aborted");
-      } else {
-        console.error("Error processing main run stream:", error);
-      }
-    }
-
-    // Wait for any sub-run (tool outputs) streams to finish
-    if (subRunPromises.length > 0) {
-      console.log("Waiting for sub-run streams to finish...");
-      await Promise.all(subRunPromises);
-    }
-
-      
-    
-    aiMessage = eventHandler.tempObj.aiMessage;
-    promptTokens = eventHandler.tempObj.promptTokens;
-    completionTokens = eventHandler.tempObj.completionTokens;
     console.log("the number of prompt tokens: ", promptTokens);
     console.log("the number of completion tokens: ", completionTokens);
     console.log("AI Message from event handler: ", aiMessage);
@@ -688,6 +809,8 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
       AIMessage: aiMessage,
       promptTokens: promptTokens,
       completionTokens: completionTokens,
+      toolUse: true,
+      model: "gpt-4o",
     });
     await chat.save();
     // Send a "done" event  to indicate the end of the stream
@@ -698,6 +821,7 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
         $set: { 
+          "run.tool": responseData.tool,
           "updatedAt": new Date()  // Update the timestamp
         }
       });
@@ -898,6 +1022,13 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
         console.log("Changing the AI response:", chatMessage.AIMessage);
         chatMessage.UserMessage = responseData.prompt;  
         chatMessage.AIMessage = aiMessage;
+        chatMessage.promptTokens = promptTokens;
+        chatMessage.completionTokens = completionTokens;
+        chatMessage.model = responseData.model;
+        chatMessage.accuracy = undefined;
+        chatMessage.coherence = undefined;
+        chatMessage.relevance = undefined;
+
       
         await chatMessage.save(); // Save only the modified message
         
@@ -921,6 +1052,7 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
       AIMessage: aiMessage,
       promptTokens: promptTokens,
       completionTokens: completionTokens,
+      model: responseData.model,
     });
     await chat.save();
     // Send a "done" event  to indicate the end of the stream
@@ -930,7 +1062,7 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
       // Add chat to the chat group's messages
       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
-        $set: { "run.model": responseData.model,
+        $set: { "run.model": responseData.model, "run.memory": false,
         "updatedAt": new Date() 
         }
       });
@@ -1048,6 +1180,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         assistant_id: run.run.AssistantId,
         stream: true,
         model: responseData.model,
+     
       
     });
           try{
@@ -1113,6 +1246,12 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
       console.log("Changing the AI response:", chatMessage.AIMessage);
       chatMessage.UserMessage = responseData.prompt;  
       chatMessage.AIMessage = aiMessage;
+      chatMessage.promptTokens = promptTokens;
+      chatMessage.completionTokens = completionTokens;
+      chatMessage.model = responseData.model;
+      chatMessage.accuracy = undefined;
+      chatMessage.coherence = undefined;
+      chatMessage.relevance = undefined;
     
       await chatMessage.save(); // Save only the modified message
 
@@ -1126,6 +1265,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
       AIMessage: aiMessage,
       promptTokens: promptTokens,
       completionTokens: completionTokens,
+      model: responseData.assistant !== '' ? "gpt-4o" : responseData.model,
     });
     await chat.save();
     // Send a "done" event  to indicate the end of the stream
@@ -1136,6 +1276,8 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
         $set: { "run.model": responseData.model,
+          "run.memory": true,
+          "run.assistant": responseData.assistant,
         "updatedAt": new Date() 
         }
       });
@@ -1300,9 +1442,9 @@ app.get("/api/chatGroupName", isAuthenticated, async (req, res) => {
       return;
     }
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo", // Valid model name
+      model: "o3-mini", // Valid model name
       messages: [
-        {"role": "system", "content": "Construct a title using the following chat using very few words."},
+        {"role": "system", "content": "Construct a title using the following chat using 3 words max."},
         {"role": "user", "content": responseData.prompt}
       ],
       stream: true,
@@ -1383,8 +1525,175 @@ app.get("/api/prompting", isAuthenticated, async (req, res) => {
   }
 });
 
+app.post("/api/judge", isAuthenticated, async (req, res) => {
+
+  try {
+    const { id } = req.body;
+
+    // Fetch the messageModel give the id
+    const message = await MessageModel.findById(id)
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+    if(message.relevance !== undefined || message.accuracy != undefined || message.coherence != undefined){
+      return res.status(400).json({ error: "Message already judged" });
+    }
+    // Update the messageModel with the judgement
+    const UserMessage = message.UserMessage;
+    const AIMessage = message.AIMessage;
 
 
+    let completion = await openai.chat.completions.create({
+      model: "gpt-4o-search-preview",
+      web_search_options: {},
+      messages: [{
+          "role": "user",
+          "content": UserMessage
+      }],
+  });
+
+  
+  console.log(completion.choices[0].message.content);
+  const news = completion.choices[0].message.content;
+  const evaluationEvent = z.object({
+    accuracy: z.number(),
+    coherence: z.number(),
+    relevance: z.number(),
+  });
+
+ completion = await openai.beta.chat.completions.parse({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: "Extract the event information." },
+      { role: "user", content: UserMessage },
+      { role: "system", content: AIMessage },
+      { role: "user", content: ` Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10, where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
+    ],
+    response_format: zodResponseFormat(evaluationEvent, "event"),
+  });
+
+  const event = completion.choices[0].message.parsed;
+  console.log(event);
+  const { accuracy, coherence, relevance } = event;
+  message.accuracy = accuracy;
+  message.coherence = coherence;
+  message.relevance = relevance;
+  await message.save();
+  
+ 
+  }
+  catch (error) {
+    console.error("Error in /api/judge route:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
+  try {
+    // Get all chat groups for the current user
+    const chatGroups = await RunModel.find({ user: req.session.userId });
+    
+    if (!chatGroups || chatGroups.length === 0) {
+      return res.status(404).json({ error: "No chat groups found for this user" });
+    }
+
+    let judgedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    // For each chat group, get and process all messages
+    for (const chatGroup of chatGroups) {
+      // Populate messages for this chat group
+      await chatGroup.populate("run.messages");
+      
+      if (!chatGroup.run.messages || chatGroup.run.messages.length === 0) {
+        continue; // Skip empty chat groups
+      }
+      
+      // Process each message in the chat group
+      for (const message of chatGroup.run.messages) {
+        try {
+          // Skip messages that are already judged
+          if (message.relevance !== undefined || message.accuracy !== undefined || message.coherence !== undefined) {
+            skippedCount++;
+            continue;
+          }
+
+          const UserMessage = message.UserMessage;
+          const AIMessage = message.AIMessage;
+          
+          if (!UserMessage || !AIMessage) {
+            skippedCount++;
+            continue; // Skip incomplete messages
+          }
+
+          // Get factual information using web search to help judging
+          let completion = await openai.chat.completions.create({
+            model: "gpt-4o-search-preview",
+            web_search_options: {},
+            messages: [{
+                "role": "user",
+                "content": UserMessage
+            }],
+          });
+          
+          const news = completion.choices[0].message.content;
+          
+          // Define the schema for the evaluation response
+          const evaluationEvent = z.object({
+            accuracy: z.number(),
+            coherence: z.number(),
+            relevance: z.number(),
+          });
+          
+          // Get the evaluation
+          completion = await openai.beta.chat.completions.parse({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: "Extract the event information." },
+              { role: "user", content: UserMessage },
+              { role: "system", content: AIMessage },
+              { role: "user", content: `Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10, where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
+            ],
+            response_format: zodResponseFormat(evaluationEvent, "event"),
+          });
+          
+          // Extract scores and update the message
+          const event = completion.choices[0].message.parsed;
+          const { accuracy, coherence, relevance } = event;
+          
+          message.accuracy = accuracy;
+          message.coherence = coherence;
+          message.relevance = relevance;
+          
+          await message.save();
+          judgedCount++;
+          
+          // Add a small delay to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (error) {
+          console.error(`Error judging message ${message._id}:`, error);
+          errorCount++;
+        }
+      }
+    }
+    
+    return res.json({ 
+      success: true, 
+      stats: {
+        judged: judgedCount,
+        skipped: skippedCount,
+        errors: errorCount
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error in /api/judgeMass route:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 
 
