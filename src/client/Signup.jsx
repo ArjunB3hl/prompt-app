@@ -7,11 +7,13 @@ import axios from "axios";
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
-import { use, useEffect } from "react";
+import {useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 
 
 
-export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId, setImageData }) {
+export function Signup({ setIsAuthenticated, setUsername, setImageData }) {
+  const navigate = useNavigate();
   
   useEffect(() => {
     async function checkAuth() {
@@ -20,10 +22,10 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         if (response.data.isAuthenticated) {
           setIsAuthenticated(true);
           setUsername(response.data.username);
-          console.log("response.data.chatGroupId", response.data.currentChatGroupId);
-          setCurrentChatGroupId(response.data.currentChatGroupId);
+          
           setImageData(response.data.image);
-         
+          navigate(`/c/${response.data.currentChatGroupId}`);
+          
         }
       } catch (error) {
         console.error("Error loading chatGroups:", error);
@@ -69,7 +71,8 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         console.log("Registration successful:", response.data.message);
         setIsAuthenticated(true);
         setUsername(response.data.username);
-        setCurrentChatGroupId(response.data.chatGroupId);
+        navigate(`/c/${response.data.chatGroupId}`);
+       
       
         // Optionally, redirect the user or auto-login
       }
@@ -145,7 +148,7 @@ export function Signup({ setIsAuthenticated, setUsername, setCurrentChatGroupId,
         </Typography>
          <Typography sx={{ mt: 2, textAlign: "center", width: "100%" }}>
           Or sign up with{" "}
-          <Link href="/auth/google" underline="hover">
+          <Link href="/auth/google?action=signup" underline="hover">
             Google
           </Link>
         </Typography>

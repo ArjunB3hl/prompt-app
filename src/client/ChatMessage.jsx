@@ -8,8 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 
 export const ChatMessage = React.memo(
-    ({message, handleEditing, handleSave, handleCancel})  =>
-
+    ({message, handleEditing, handleSave, handleCancel, tokens})  =>
       
     {
         const [LocalMessage, setLocalMessage] = useState(message.text);
@@ -45,13 +44,63 @@ export const ChatMessage = React.memo(
               width: '65vw',
               display: 'flex',
               justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-              py: 2,
+              py: 1,
               '&:hover .edit-icon': { display: 'block' },
               '&:hover .copy-icon': { display: 'block' },
               '&:hover .judge-icon': { display: 'block' },
             }}
           >
             {message.file ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '70%' }}>
+                    {/* File Name */}
+                    <Box
+                        sx={{
+                        width: 'fit-content',
+                        border: `1px solid`,
+                        borderRadius: '15px',
+                        padding: '3px 5px',
+                        wordWrap: 'break-word',
+                        }}
+                    >
+                        <Typography sx={{ fontSize: '0.75rem' }}>{message.file}</Typography>
+                    </Box>
+                    {/* Text Message */}
+                    <Box
+                        sx={{
+                        width: 'fit-content', 
+                        border: `1px solid`,
+                        borderRadius: '15px',
+                        padding: '10px 15px',
+                        wordWrap: 'break-word',
+                        }}
+                    >
+                        <Typography>{message.text}</Typography>
+                    </Box>
+                
+                    </Box>
+                ) : message.edit ? <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%'}}>
+                <TextField
+                id="input-with-sx"
+                variant="outlined"
+                multiline
+                maxRows={4}
+                value={LocalMessage}
+                onChange={(e) => setLocalMessage(e.target.value)}
+                fullWidth 
+                error={LocalMessage.length > 3000}
+                helperText={LocalMessage.length > 3000 ? 'Character limit has been reached' : ''}
+
+            />
+            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+            <Button onClick={() => handleSave(message.id,LocalMessage)} variant="contained">
+            Save
+            </Button>
+            <Button onClick = {() => handleCancel(message.id)} >Cancel</Button>
+        
+        </Box>
+
+        
+        </Box> : (
               <Box
                 sx={{
                   display: 'flex',
@@ -71,116 +120,11 @@ export const ChatMessage = React.memo(
                   }}
                 >
                   <Typography>
-                    <ReactMarkdown>{message.text}</ReactMarkdown>
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      width: '100%',
-                      height: '100%',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      marginTop: '10px',
-                      padding: '10px',
-                    }}
-                  >
-                    <img
-                      src={`/uploads/${message.file}`}
-                      alt={message.file}
-                      style={{ maxWidth: '100%', maxHeight: '300px' }}
-                    />
-                  </Box>
-                </Box>
-                {message.sender === 'user' && (
-                  <EditIcon
-                    className="edit-icon"
-                    onClick={() => handleEditing(message.id)}
-                    sx={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      cursor: 'pointer',
-                      display: { xs: 'block', sm: 'none' }, // Always visible on mobile, hover for desktop
-                      backgroundColor: 'background.paper',
-                      borderRadius: '4px',
-                      p: 0.5,
-                      boxShadow: 1,
-                      '&:hover': {
-                        backgroundColor: 'action.hover',
-                      },
-                    }}
-                  />
-                )}
-              </Box>
-            ) : message.edit ? (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  maxWidth: message.sender === 'user' ? '70%' : '100%',
-                }}
-              >
-                <Box
-                  sx={{
-                    width: message.sender === 'user' ? 'fit-content' : "100%",
-                    border: message.sender === 'user' ? `1px solid` : '',
-                    borderRadius: message.sender === 'user' ? '15px' : '',
-                    padding: '0px 15px',
-                    wordWrap: 'break-word',
-                    position: 'relative', // Add position relative
-                  }}
-                >
-                  <TextField
-                    value={LocalMessage}
-                    onChange={(e) => setLocalMessage(e.target.value)}
-                    multiline
-                    fullWidth
-                    rows={4}
-                    variant="outlined"
-                    sx={{ marginBottom: '10px' }}
-                  />
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      onClick={() => handleSave(message.id, LocalMessage)}
-                      variant="contained"
-                      color="primary"
-                      sx={{ marginRight: '10px' }}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      onClick={() => handleCancel(message.id)}
-                      variant="contained"
-                      color="secondary"
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                </Box>
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  maxWidth: message.sender === 'user' ? '70%' : '100%',
-                }}
-              >
-                <Box
-                  sx={{
-                    width: message.sender === 'user' ? 'fit-content' : "100%",
-                    border: message.sender === 'user' ? `1px solid` : '',
-                    borderRadius: message.sender === 'user' ? '15px' : '',
-                    padding: '0px 15px',
-                    wordWrap: 'break-word',
-                    position: 'relative', // Add position relative
-                  }}
-                >
-                  <Typography>
+                    {message.complete === false && message.text.length > 0 && (
+                      <Typography variant="caption" sx={{ color: 'grey' }}>
+                        Predicting {tokens}  Tokens
+                      </Typography>
+                    )}
                     <ReactMarkdown>{message.text}</ReactMarkdown>
                   </Typography>
                 
@@ -193,8 +137,8 @@ export const ChatMessage = React.memo(
                       onClick={handleCopy}
                       sx={{
                         position: 'absolute',
-                        bottom: '0',
-                        left: '0',
+                        bottom: '-10px',
+                        left: '10px',
                         cursor: 'pointer',
                         display: { xs: 'block', sm: 'none' }, // Always visible on mobile, hover for desktop
                         backgroundColor: copied ? 'success.light' : 'background.paper',
@@ -220,8 +164,8 @@ export const ChatMessage = React.memo(
                       sx={{
                   
                         position: 'absolute',
-                        bottom: '0',
-                        left: '30px',
+                        bottom: '-10px',
+                        left: '40px',
                         cursor: 'pointer',
                         display: { xs: 'block', sm: 'none' }, // Always visible on mobile, hover for desktop
                         backgroundColor: 'background.paper',

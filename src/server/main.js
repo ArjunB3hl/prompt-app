@@ -18,6 +18,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import MongoStore from "connect-mongo";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import axios from "axios";
 
 import "dotenv/config"; // Loads environment variables from .env
 import OpenAI from "openai";
@@ -113,82 +114,85 @@ const isAuthenticated = (req, res, next) => {
 
 // Route to initiate OAuth 2.0 flow
 app.get('/auth/google', (req, res) => {
-  // Generate an authentication URL
+  // For example, pass a query param ?action=signup or ?action=login
+  const action = req.query.action;
   const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline', // 'offline' to receive a refresh token
-    scope: scopes,          // Scopes requested
-    prompt: 'consent', // Forces user to re-approve permissions
+    access_type: 'offline',
+    scope: scopes,
+    prompt: action === 'signup' ? 'consent' : 'select_account',
+    state: action // The state will be returned in the callback query params
   });
-  // Redirect the user to the Google authentication page
   res.redirect(authUrl);
-
-
-  
 });
 
-// OAuth2 callback route
 app.get('/oauth2callback', async (req, res) => {
   const code = req.query.code;
-
+  const action = req.query.state; // "signup" or "login"
   if (!code) {
     return res.status(400).send('No authorization code provided.');
   }
-
   try {
-    // Exchange the authorization code for tokens
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
-
-    // Fetch user profile info from Google
-    const oauth2 = google.oauth2({
-      auth: oauth2Client,
-      version: "v2"
-    });
+    const oauth2 = google.oauth2({ auth: oauth2Client, version: "v2" });
     const { data } = await oauth2.userinfo.get();
-    console.log('Google profile data:', data);
     
-    // Use the email from Google's profile as username (or any unique identifier)
-    let user = await UserModel.findOne({ username: data.given_name });
+
+    let user = await UserModel.findOne({email: data.email});
     let chatGroup = null;
-    if (!user) {
-          // Create a new user in MongoDB if one doesn't exist
-          // A real app should generate a secure password or mark the account as Google-registered
-          user = new UserModel({ username: data.given_name, password: "google-oauth", email: data.email, image: data.picture });
-          await user.save();
-            // Create a new thread and assistant for this user
-          const emptyThread = await openai.beta.threads.create();
-          const myAssistant = await openai.beta.assistants.create({
-            model: "gpt-4o-mini",
-            
-          });
 
-          // Create a default chat group for the new user
-          const chatGroup = new RunModel({
-            name: "New Chat",
-            user: user._id,
-            run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
-          });
-          await chatGroup.save();
+    // If the state indicates signup
+    if (action === "signup") {
+      if (!user) {
+        // Create new user
+        user = new UserModel({ username: data.given_name, password: "google-oauth", email: data.email, image: data.picture });
+        await user.save();
 
+        // Create new thread and assistant for the new user
+        const emptyThread = await openai.beta.threads.create();
+        const myAssistant = await openai.beta.assistants.create({
+          model: "gpt-4o-mini",
+        });
+
+        // Create a default chat group for the new user
+        chatGroup = new RunModel({
+          name: "New Chat",
+          user: user._id,
+          run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+        });
+        await chatGroup.save();
+      } else {
+        // If a user already exists in signup mode, you might choose to warn or simply log the user in.
+        console.log("User already exists. Logging in...");
+        chatGroup = await RunModel.findOne({ user: user._id }).sort({ updatedAt: -1 });
+      }
     }
-
-    if(chatGroup === null){
+    // If the action indicates login
+    else if (action === "login") {
+      if (!user) {
+        // Optionally, redirect to a signup page or return an error
+        return res.status(400).send("No account found. Please sign up.");
+      }
+      // For login, simply fetch the latest chat group.
       chatGroup = await RunModel.findOne({ user: user._id }).sort({ updatedAt: -1 });
     }
-    
+
+    // Save tokens and update session
     user.tokens = tokens;
-    await user.save();  // Persist the tokens in MongoDB
-    // Set session or perform other state management as needed
-    req.session.userId = user._id; 
-    req.session.currentChatGroupId = chatGroup._id;
-    res.redirect(`http://localhost:5030/signup`);
-    
+    await user.save();
+    req.session.userId = user._id;
+    if(action === "signup"){
+    res.redirect(`http://localhost:5030/signup`); // or wherever you’d like to redirect
+    }
+    else if(action === "login"){
+      res.redirect(`http://localhost:5030/login`); // or wherever you’d like to redirect
+    }
+
   } catch (error) {
     console.error('Error during Google auth callback:', error);
     res.status(500).send('Error retrieving access token.');
   }
 });
-
 
 
 
@@ -234,7 +238,7 @@ app.post("/api/signup", async (req, res) => {
 
     // Set session with both user and current chat group
     req.session.userId = user._id;
-    req.session.currentChatGroupId = chatGroup._id;
+
 
     res.json({
       message: "Registration successful",
@@ -275,7 +279,7 @@ app.post("/api/login", async (req, res) => {
     // Set session
     req.session.userId = user._id;
     req.session.username = username; // Store username in session
-    req.session.currentChatGroupId = chatGroup._id;
+    
 
     res.json({
       message: "Login successful",
@@ -294,7 +298,6 @@ app.get("/api/logout", isAuthenticated, async (req, res) => {
     // Set session
     req.session.userId = null;
     req.session.username = null; // Store username in session
-    req.session.currentChatGroupId =null;
 
     res.json({
       message: "Logout successful",
@@ -328,7 +331,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
       run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "gpt-4o-mini", memory: true },
     });
     await chatGroup.save();
-    req.session.currentChatGroupId = chatGroup._id;
+   
 
     res.json({ name: chatGroup.name,chatGroupId: chatGroup._id });
   } catch (error) {
@@ -339,6 +342,8 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
 app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
   try {
     let chatGroup = await RunModel.findById(req.params.chatGroupId);
+    const { currentChatGroupId } = req.body;
+
     
   
     if (!chatGroup) {
@@ -349,9 +354,9 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
     await RunModel.deleteOne({ _id: req.params.chatGroupId });
     const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
  
-    if(req.session.currentChatGroupId === req.params.chatGroupId && chatGroups.length > 0){
+    if( currentChatGroupId === req.params.chatGroupId && chatGroups.length > 0){
       chatGroup = await RunModel.findOne({ user: req.session.userId }).sort({ updatedAt: -1 });
-      req.session.currentChatGroupId = chatGroup._id;
+      
     }
     else if(chatGroups.length === 0){
 
@@ -406,13 +411,15 @@ app.get("/api/check-auth", async (req, res) => {
     try {
       const user = await UserModel.findById(req.session.userId);
       const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
-      console.log("chatGroupID: ", req.session.currentChatGroupId);
-      console.log("user ", user);
+      console.log("chatGroups ", chatGroups);
+      console.log("chatGroupId ", chatGroups[0]?._id);
+      console.log("image ", user.image);  
+     
       res.json({
         isAuthenticated: true,
         username: user.username,
         chatGroups: chatGroups,
-        currentChatGroupId: req.session.currentChatGroupId,
+        currentChatGroupId: chatGroups[0]?._id,
         image: user.image,
       });
     } catch (error) {
@@ -986,19 +993,6 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
 
 
 
-        
-
-    
- 
-          
-    
-
-    
-
-    
-   
-    
-
     let chat =  null;
     // Save the chat message in the database
     if (req.query.messageId) {
@@ -1081,10 +1075,6 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
 
 
 
-
-
-
-
 // SSE endpoint for chat
 app.get("/api/chat", isAuthenticated, async (req, res) => {
   // Set SSE headers immediately
@@ -1157,7 +1147,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         if(myAssistant.instructions !== null){
           await openai.beta.assistants.update(run.run.AssistantId, {
 
-            instructions: null,
+            instructions: '',
           });
 
       } }
@@ -1335,7 +1325,7 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
         return res.status(400).json({ error: "Missing required parameters" });
     }
 
-   
+   let message = null;
    
     // Get the chat history from the database
     const chatRun = await RunModel.findById(chatGroupId)
@@ -1344,53 +1334,63 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
         return res.status(404).json({ error: "Chat group not found" });
     }
 
+    
 
-    let estimatedCompletionTokens = 0;
+    let estimatedCompletionTokens = 9999999999;
 
        // Load the correct tokenizer for the model
     if(model === "gpt-4o-mini" || model === "gpt-3.5-turbo" || model === "o1-mini" || model === "o3-mini"){
-              const enc = encoding_for_model(model);
-
+          
               let thread_messages = null;
               let messages = null;
-              let pastTokens = 0;
               if (memory) {
                 thread_messages = await openai.beta.threads.messages.list(chatRun.run.threadId, {limit: 100});
-                  messages = thread_messages.data.map((msg) => msg.content[0].text.value);
+                messages = thread_messages.data
+                .map((msg) => msg.content[0].text.value)
+                .join(" ");
+                message = messages + text;
                   console.log("Messages: ", messages);
-                  messages.forEach((msg) => {
-                      pastTokens += enc.encode(msg).length;
-                  } );
               }
-
+              try {
+                const requestBody = {
+                  prompt: message,
+                  model: model
+                };
+            
+                const response = await axios.post(
+                  process.env.NGROK_URL + "/predict",
+                  requestBody
+                );
+            
+                
+                estimatedCompletionTokens = response.data.predicted_completion_tokens;
+                console.log("Predicted Tokens:", estimatedCompletionTokens);
+            
+              } catch (error) {
+                console.error(error);
+              }
               
-              // Tokenize the new input message
-              const inputTokens = enc.encode(text).length;
-
-              // Define estimated completion token limits based on the model
-              const modelCompletionFactors = {
-                  "o3-mini": 20, // Predicts 20x input tokens
-                  "o1-mini": 1.5, // Predicts 1.5x input tokens
-                  "gpt-4o-mini": 1.3, // Predicts 1.3x input tokens
-                  "gpt-3.5-turbo": 1.2, // Predicts 1.2x input tokens
-              };
-
-              const completionFactor = modelCompletionFactors[model] || 1.2;
-              estimatedCompletionTokens = pastTokens + Math.ceil(inputTokens * completionFactor);
-              // Free memory for tokenizer
-              enc.free();
+             
 
             }
             else{
               try {
-              const client = new Anthropic();
-
-              const response = await client.messages.countTokens({ model: req.body.model, 
-                system: 'You are a scientist', messages: [{ role: 'user', content: text }] });
-
-                console.log("Response: ", response);
                 
-              estimatedCompletionTokens = response.input_tokens*1.5;
+                const requestBody = {
+                  prompt: text,
+                  model: model
+                };
+            
+                const response = await axios.post(
+                  process.env.NGROK_URL + "/predict",
+                  requestBody
+                );
+            
+                
+                estimatedCompletionTokens = response.data.predicted_completion_tokens;
+                console.log("Predicted Tokens:", estimatedCompletionTokens);
+            
+              
              
               }
               catch (error) {
@@ -1736,7 +1736,6 @@ app.get("/api/chatgroup/:id/chats", isAuthenticated, async (req, res) => {
   try {
     const chatGroup = await RunModel.findById(req.params.id).populate("run.messages");
     // Update the session's current chat group id
-    req.session.currentChatGroupId = req.params.id;
     res.json(chatGroup.run);
   } catch (error) {
     res.status(500).json({ error: error.message });

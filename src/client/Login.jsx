@@ -6,8 +6,32 @@ import axios from "axios";
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from "react";
 
-export function Login({ setIsAuthenticated, setUsername, setCurrentChatGroupId }) {
+
+export function Login({ setIsAuthenticated, setUsername, setImageData }) {
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const response = await axios.get("/api/check-auth");
+        if (response.data.isAuthenticated) {
+          setIsAuthenticated(true);
+          setUsername(response.data.username);
+          console.log("response.data.chatGroupId", response.data.chatGroupId);
+          setImageData(response.data.image);
+          navigate(`/c/${response.data.currentChatGroupId}`);
+        }
+      } catch (error) {
+        console.error("Error loading chatGroups:", error);
+      }
+    }
+    checkAuth();
+  }, []);
   const {
     register,
     handleSubmit,
@@ -36,7 +60,7 @@ export function Login({ setIsAuthenticated, setUsername, setCurrentChatGroupId }
        
         setIsAuthenticated(true);
         setUsername(response.data.username);
-        setCurrentChatGroupId(response.data.chatGroupId);
+        navigate(`/c/${response.data.chatGroupId}`);
       }
     } catch (error) {
       console.error('Login failed:', error);
@@ -89,6 +113,13 @@ export function Login({ setIsAuthenticated, setUsername, setCurrentChatGroupId }
           <Button type="submit" variant="contained" color="primary" sx={{ mt: 1 }}>
             Login
           </Button>
+
+          <Typography sx={{ mt: 2, textAlign: "center", width: "100%" }}>
+          Or  Log in with{" "}
+          <Link href="/auth/google?action=login" underline="hover">
+            Google
+          </Link>
+        </Typography>
         </Box>
       </Paper>
     </Container>

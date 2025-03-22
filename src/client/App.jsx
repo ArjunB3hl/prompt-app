@@ -32,8 +32,6 @@ import ReactMarkdown from 'react-markdown';
 
 import { CardCont } from './CardCont';
 
-
-
 import { ThemeProvider, createTheme, useColorScheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { dark } from '@mui/material/styles/createPalette';
@@ -57,19 +55,11 @@ const theme = createTheme({
 function App() {
   
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('isAuthenticated', false);
-  
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useLocalStorage('username', '');
+  const [imageData, setImageData] = useLocalStorage('imageData', '');
   const [chatGroups, setChatGroups] = useState([]);
-  const [currentChatGroupId, setCurrentChatGroupId] = useLocalStorage('currentChatGroupId', null);
-  const [imageData, setImageData] = useState('');
   
   
-  
-
-
-  
-
-
   return (
     
       <Router>
@@ -78,12 +68,10 @@ function App() {
             path="/" 
             element={ <Home/>
             } />
-          <Route path="/c/:chatGroupId"  element= {isAuthenticated ? <MainApp isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} chatGroups={chatGroups} setChatGroups={setChatGroups} setCurrentChatGroupId={setCurrentChatGroupId} currentChatGroupId={currentChatGroupId} imageData={imageData} /> : <Navigate to="/signup" />} />
-          {console.log('chatGroupID is : ', currentChatGroupId)} 
-         
-          <Route path="/login" element={(!isAuthenticated) ? <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} /> : <Navigate to={`/c/${currentChatGroupId}`} />} />
-          <Route path="/signup" element={(!isAuthenticated) ? <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setCurrentChatGroupId={setCurrentChatGroupId} setImageData={setImageData}/> : <Navigate to={`/c/${currentChatGroupId}`} />} />
-          <Route path="/charts" element= {(isAuthenticated) ? <ChartViewer chatGroups ={chatGroups}  currentChatGroupId ={currentChatGroupId} /> : <Navigate to="/signup" />} />
+          <Route path="/c/:currentChatGroupId"  element= {isAuthenticated ? <MainApp key={window.location.pathname} isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} imageData={imageData} setImageData={setImageData} chatGroups={chatGroups} setChatGroups={setChatGroups}/> : <Navigate to="/signup" />} />  
+          <Route path="/login" element={ <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setImageData={setImageData} /> } />
+          <Route path="/signup" element={ <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername}  setImageData={setImageData}/> } />
+          <Route path="/charts" element= {(isAuthenticated) ? <ChartViewer /> : <Navigate to="/signup" />} />
 
         </Routes>
      
@@ -92,22 +80,13 @@ function App() {
   );
 }
 
-function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentChatGroupId, currentChatGroupId, setIsAuthenticated, imageData }) {
+function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGroups, setChatGroups, setImageData }) {
   // Add new state for messages
-  const { chatGroupId } = useParams();
-  
-  useEffect(() => {
-    // Now you can use the chatGroupId from the URL
-    console.log("Chat group ID from URL:", chatGroupId);
-    
-    // You might want to sync it with your state
-    if (chatGroupId !== currentChatGroupId) {
-      setCurrentChatGroupId(chatGroupId);
-    }
-  }, [chatGroupId]); // Run this effect when chatGroupId changes
-  
+  const { currentChatGroupId } = useParams();
+
+ 
   const [state, setState] = useState({
-    left: false,
+    left: true,
     right: false,
   });
   const [model, setModel] = useState('gpt-4o-mini');
@@ -212,16 +191,16 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
 
   });
 
-  const handleSave = useCallback ((id, LocalMessage) => {
+  const handleSave = useCallback (async (id, LocalMessage) => {
     
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
         if (message.id === id && message.sender === 'user') {
           // Return a new object with the updated 'edit' property.
-          return { ...message,text:LocalMessage,edit: false };
+          return { ...message,text:LocalMessage,edit: false, load: true};
         }
         else if (message.id === id && message.sender === 'ai') {
-          return { ...message, text: '' };
+          return { ...message, text: '', complete: false };
         }
         return message;
       })
@@ -230,8 +209,21 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
     setSend(true);
 
     try {
+      const response = await axios.post('/api/tokens', { text: LocalMessage, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
+      console.log('estimating :', response.data);
+      setTokens(response.data.estimatedCompletionTokens);
+       
+     }
+     catch (error) {
+       console.error('Error calculating tokens:', error);
+     }
+
+  
+
+    try {
       // Create an EventSource to listen for streaming responses
       let eventSource = null;
+      
       if(memory === true){
       
      eventSource = new EventSource(
@@ -254,7 +246,7 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
           setMessages((prevMessages) =>
             prevMessages.map((message) => {
               if (message.id === id && message.sender === 'ai') {
-                return { ...message, edit: false };
+                return { ...message, edit: false, complete : true };
               }
               return message;
             }
@@ -274,17 +266,21 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
         }
         
         // Now you can process the parsed JSON data.
-        if (data.content) {
-          setMessages((prevMessages) => 
-            prevMessages.map((msg) =>
-              msg.id === id && msg.sender === 'ai'
-                ? { ...msg, text: msg.text + data.content }
-                : msg
-            )
-          );
+       
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) => {
+              if(msg.id === id && msg.load === true){
+                return { ...msg, load: false };
+              }
+              if (msg.id === id && msg.sender === 'ai') {
+                return { ...msg, text: msg.text + data.content };
+              }
+              return msg;
+            }
+          ));
             
         }
-      };
+    
 
       eventSource.onerror = (error) => {
         console.error('Error in EventSource:', error);
@@ -308,7 +304,6 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
   const [chat, setChat] = useState(false);
   const isBrowserDefaultDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
   const [themeMode, setThemeMode] = useState(isBrowserDefaultDark() ? 'dark' : 'light');
-  const [loader, setLoader] = useState(false);
   const [nameChatGroup, setNameChatGroup] = useState(false); 
   const eventSourceRef = useRef(null);
  
@@ -322,7 +317,9 @@ function MainApp({ setUsername, username, chatGroups, setChatGroups, setCurrentC
     const loadChatGroups = async () => {
       try {
         const response = await axios.get("/api/check-auth");
+        console.log("response.data.chatGroupId in myApp", response.data.currentChatGroupId);
         setChatGroups( response.data.chatGroups );
+        
         if(username === '') {
           setUsername(response.data.username);
         };
@@ -423,8 +420,8 @@ useEffect(() => {
           setChat(true);
         }
         setMessages(response.data.messages.map( (chat, index) => ([
-          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse },
-          { text: chat.AIMessage, sender: 'ai', id: chat._id },
+          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse, load: false },
+          { text: chat.AIMessage, sender: 'ai', id: chat._id, complete: true },
          
         ])).flat());
         setModel(response.data.model);
@@ -453,10 +450,9 @@ useEffect(() => {
       }
     };
     
-    if (currentChatGroupId) {
       loadChats();
-    }
-  }, [currentChatGroupId]);
+    
+  }, []);
 
   useEffect(() => {
     if (messagesEndRef.current && !send) {
@@ -470,22 +466,6 @@ useEffect(() => {
     }
   }, [messages]);
 
- 
-
-  
-   
-
-
-  
-  useEffect(() => {
- 
-    return () => {
-        if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-        }
-        
-    };
-}, [currentChatGroupId]); // Run this effect when currentChatGroupId changes
 
  //In the bottom Bar component 
 const handleSendClick = () => {
@@ -495,7 +475,11 @@ const handleSendClick = () => {
           eventSourceRef.current.close();
         }
         setSend(false); // Update UI state
-        setLoader(false);
+        setMessages((prevMessages) =>
+          prevMessages.map(msg =>
+            msg.load ? { ...msg, load: false } : msg
+          )
+        );
     } else {
         // If not sending, initiate sending
         handleKeyPress({ type: 'click' });
@@ -526,7 +510,7 @@ const handleSendClick = () => {
         
           
           
-         const userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false, id: null} : { text: tempValue, sender: 'user' , edit: false, id: null};
+         const userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false, id: null, load: true} : { text: tempValue, sender: 'user' , edit: false, id: null, load: true};
          setMessages([...messages, userMessage]);
          setChat(true);
         
@@ -544,7 +528,6 @@ const handleSendClick = () => {
 
          setSend(true);
          setSelectedFile(null);
-         setLoader(true);
          setNameChatGroup(true);
        
         
@@ -575,7 +558,11 @@ const handleSendClick = () => {
                                 setMessages((prevMessages) => 
                                   prevMessages.map((msg) => {
                                     if ( msg.id === null) {
-                                      return { ...msg, id: data.id };
+                                        if(msg.sender === 'ai'){
+                                        return { ...msg, id: data.id, complete: true };
+                                        }
+                                        return { ...msg, id: data.id };
+                                     
                                     }
                                     return msg;
 
@@ -583,32 +570,44 @@ const handleSendClick = () => {
                                 
                               eventSource.close();
                               setSend(false);
-                              setLoader(false);
+                             
+                  
                                 return;
                             }
                             
                           
                               if (data.content) {
-                                setLoader(false);
+
                                 setMessages((prevMessages) => {
-                                  const lastMessage = prevMessages[prevMessages.length - 1];
+                                  const updatedMessages = prevMessages.map(msg => 
+                                    msg.load ? { ...msg, load: false } : msg
+                                  );
+                                
+                                  const lastMessage = updatedMessages[updatedMessages.length - 1];
                                   if (lastMessage && lastMessage.sender === 'ai') {
-                                    // Update the last AI message
-                                    return [
-                                      ...prevMessages.slice(0, -1),
-                                      { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false, id: null },
-                                    ];
+                                    updatedMessages[updatedMessages.length - 1] = {
+                                      ...lastMessage, 
+                                      text: lastMessage.text + data.content, 
+                                      complete: false,
+                                      id: null
+                                    };
                                   } else {
-                                    // Add a new AI message
-                                    return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false, id: null}];
+                                    updatedMessages.push({ text: data.content, sender: 'ai', complete: false, id: null });
                                   }
+                                
+                                  return updatedMessages;
                                 });
                               }
                               
                             } catch (error) {
                               console.error("Error parsing JSON", error);
                               setSend(false);
-                              setLoader(false);
+                              
+                              setMessages((prevMessages) => 
+                                prevMessages.map((msg) => 
+                                  msg.load ? { ...msg, load: false } : msg
+                                )
+                              );
                               return;
                             }
                             
@@ -617,7 +616,11 @@ const handleSendClick = () => {
                           eventSource.onerror = (error) => {
                             console.error('Error in EventSource:', error);
                             eventSource.close();
-                            setLoader(false);
+                            setMessages((prevMessages) => 
+                              prevMessages.map((msg) => 
+                                msg.load ? { ...msg, load: false } : msg
+                              )
+                            );
                             setSend(false);
                             
                           };
@@ -626,10 +629,6 @@ const handleSendClick = () => {
 
 
           }
-
-
-
-
           else{
             eventSource = new EventSource(`/api/chatTool?prompt=${encodeURIComponent(userMessage.text)}&currentChatGroupId=${currentChatGroupId}&tool=${toolType}`); 
               
@@ -648,7 +647,11 @@ const handleSendClick = () => {
                         if (msg.sender === 'user') {
                           return { ...msg, id: data.id, toolUse: true };
                         }
-                        return { ...msg, id: data.id };
+                        else {
+                        return { ...msg, id: data.id, complete: true };
+                        }
+
+                     
                       }
                       return msg;
 
@@ -656,32 +659,44 @@ const handleSendClick = () => {
                   
                 eventSource.close();
                 setSend(false);
-                setLoader(false);
+                
                   return;
               }
               
             
                 if (data.content) {
-                  setLoader(false);
                   setMessages((prevMessages) => {
-                    const lastMessage = prevMessages[prevMessages.length - 1];
+                    const updatedMessages = prevMessages.map(msg => 
+                      msg.load ? { ...msg, load: false } : msg
+                    );
+                  
+                    const lastMessage = updatedMessages[updatedMessages.length - 1];
                     if (lastMessage && lastMessage.sender === 'ai') {
-                      // Update the last AI message
-                      return [
-                        ...prevMessages.slice(0, -1),
-                        { text: `${lastMessage.text + data.content}`, sender: 'ai',  edit: false },
-                      ];
+                      updatedMessages[updatedMessages.length - 1] = {
+                        ...lastMessage, 
+                        text: lastMessage.text + data.content, 
+                        complete: false,
+                        id: null
+                      };
                     } else {
-                      // Add a new AI message
-                      return [...prevMessages, { text: `${data.content}`, sender: 'ai',  edit: false}];
+                      updatedMessages.push({ text: data.content, sender: 'ai', complete: false, id: null });
                     }
+                  
+                    return updatedMessages;
                   });
+                  
                 }
                 
               } catch (error) {
                 console.error("Error parsing JSON", error);
                 setSend(false);
-                setLoader(false);
+                
+                setMessages((prevMessages) => 
+                  prevMessages.map((msg) => 
+                    msg.load ? { ...msg, load: false } : msg
+                  )
+                );
+
                 return;
               }
           
@@ -694,7 +709,11 @@ const handleSendClick = () => {
           eventSource.onerror = (error) => {
             console.error('Error in EventSource:', error);
             eventSource.close();
-            setLoader(false);
+            setMessages((prevMessages) => 
+              prevMessages.map((msg) => 
+                msg.load ? { ...msg, load: false } : msg
+              )
+            );
             setSend(false);
             
           };
@@ -725,8 +744,8 @@ const handleSendClick = () => {
    
         console.log(response.data.message);
         setIsAuthenticated(false);
-        setCurrentChatGroupId(null);
         setUsername('');
+        setImageData('');
       
       }
     } catch (error) {
@@ -751,7 +770,6 @@ const handleSendClick = () => {
     <LeftDrawer 
       setChatGroups={setChatGroups} 
       chatGroups={chatGroups} 
-      setCurrentChatGroupId={setCurrentChatGroupId} 
       currentChatGroupId={currentChatGroupId} 
       themeMode={themeMode} 
       leftWidth={leftWidth} 
@@ -813,17 +831,9 @@ const handleSendClick = () => {
       }}
     >
       {messages.map((message, index) => (
-
-        <> 
-        
-        <ChatMessage key={index} message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} /> 
-        
-        
-        </>
-        
-      ))}
-      
-    {loader ? (<Box 
+  <React.Fragment key={message.id || index}>
+    <ChatMessage message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} tokens = {tokens} />
+    {message.load ? (<Box 
       sx={{
         position: 'relative',
         width: '65vw',
@@ -833,8 +843,11 @@ const handleSendClick = () => {
       }}
     > <Box sx={{ display: 'flex', alignItems: 'flex-start'}}>
        <CircularProgress size="1.5rem" />  
-        <Typography sx={{ ml: 1 }}> Estimating {tokens} completion tokens</Typography>
       </Box> </Box>)    : null}
+  </React.Fragment>
+))}
+      
+   
 
     {!isEditing && <div ref={messagesEndRef} /> } {/* Step 3: Attach ref */}
     </Box>

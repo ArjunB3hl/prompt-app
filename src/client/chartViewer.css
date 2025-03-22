@@ -153,7 +153,7 @@ td[style*="width: '40%'"] .message-cell {
 }
 
 .custom-table tbody tr.selected {
-  background-color: rgba(25, 118, 210, 0.08);
+  background-color: transparent;
 }
 
 /* Checkbox Column */
@@ -187,8 +187,8 @@ td[style*="width: '40%'"] .message-cell {
 }
 
 .checkbox.checked {
-  background-color: #90caf9;
-  border-color: #90caf9;
+  background-color: #9c9b9b43;
+  border-color: transparent;
 }
 
 .checkbox.checked::after {

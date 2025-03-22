@@ -23,7 +23,7 @@ import './chartViewer.css'; // We'll create this CSS file next
 // Register the chart components we need
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
-export function ChartViewer({ currentChatGroupId }) {  
+export function ChartViewer() {  
   const [chatGroups, setChatGroups] = useState([]);
   const [selectedChatGroup, setSelectedChatGroup] = useState(null);
   const [chats, setChats] = useState([]);
@@ -36,14 +36,14 @@ export function ChartViewer({ currentChatGroupId }) {
         const response = await axios.get("/api/check-auth");
         setChatGroups(response.data.chatGroups);
         // Optionally set selectedChatGroup based on currentChatGroupId
-        const selected = response.data.chatGroups.find(group => group._id === currentChatGroupId);
+        const selected = response.data.chatGroups.find(group => group._id === response.data.currentChatGroupId);
         if (selected) setSelectedChatGroup(selected);
       } catch (error) {
         console.error("Error loading chatGroups:", error);
       }
     }
     loadChatGroups();
-  }, [currentChatGroupId]);
+  }, []);
 
   useEffect(() => {
     // Load chats for current chat group
@@ -63,9 +63,9 @@ export function ChartViewer({ currentChatGroupId }) {
       }
     };
     
-    if (currentChatGroupId) {
+   
       loadChats();
-    }
+    
   }, [selectedChatGroup]);
   
   const rows = chats.map((chat) => ({
@@ -767,7 +767,15 @@ export function ChartViewer({ currentChatGroupId }) {
                     label="Chat Group"
                   >
                     {chatGroups.map((group) => (
-                      <MenuItem key={group._id} value={group.name}>
+                      <MenuItem key={group._id} value={group.name} sx={{
+                        '&.Mui-selected': {
+                          backgroundColor: 'inherit',
+                          color: 'inherit'
+                        },
+                        '&.Mui-selected:hover': {
+                          backgroundColor: 'inherit'
+                        }
+                      }} >
                         {group.name}
                       </MenuItem>
                     ))}

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,14 +20,12 @@ import TextField from "@mui/material/TextField";
 import { set } from 'mongoose';
 
 export const  LeftDrawer = 
-React.memo( ({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroupId, themeMode, leftWidth, username, model}) => {
+React.memo( ({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth, username, model}) => {
 
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = React.useState(null);
     const [name, setName] = React.useState('');
     const [selectedGroup, setSelectedGroup] = React.useState(null);
-
-   
     const [editChatGroupId, setEditChatGroupId] = React.useState(null);
     const handleClick = (event, chatGroup) => {
       setAnchorEl(event.currentTarget);
@@ -38,21 +35,19 @@ React.memo( ({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroup
     const handleDelete = async (chatGroupId) => {
         try {
 
-          const response = await axios.delete(`/api/chatgroup/${chatGroupId}`);
-          const newChatGroupId = response.data.chatGroupId;
+          const response = await axios.delete(`/api/chatgroup/${chatGroupId}`, {
+            data: { currentChatGroupId }
+          });
+         
           if (currentChatGroupId === chatGroupId ) {
 
-            navigate(`/c/${newChatGroupId}`);
+            window.location.href = `/c/${response.data.chatGroupId}`;
           }
           setChatGroups(prevChatGroups => {
             const updatedChatGroups = prevChatGroups.filter(group => group._id !== chatGroupId);
             return updatedChatGroups;
           });
 
-        
-
-          
-         
 
         } catch (error) {
           console.error('Error deleting chat group:', error);
@@ -94,7 +89,8 @@ React.memo( ({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroup
             const updatedChatGroups = [newChatGroup, ...prevChatGroups];
             return updatedChatGroups;
           });
-          navigate(`/c/${response.data.chatGroupId}`); 
+          window.location.href = `/c/${response.data.chatGroupId}`;
+          
     
         } catch (error) {
           console.error('Error creating chat group:', error);
@@ -151,9 +147,8 @@ React.memo( ({setChatGroups, chatGroups, setCurrentChatGroupId, currentChatGroup
                 }}
               >
                 <ListItemButton
-                  onClick={() => {
-                     navigate(`/c/${group._id}`);
-                  }}
+                  conmponent ="a"
+                  href={`/c/${group._id}`}
                 >
                   <ListItemText 
                     primary={group.name}
