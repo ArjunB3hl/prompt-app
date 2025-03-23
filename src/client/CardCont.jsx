@@ -1,178 +1,47 @@
 import React from "react";
-import Card from "@mui/material/Card";
-import CardActionArea from "@mui/material/CardActionArea";
-import CardContent from "@mui/material/CardContent";
+import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
-
-
-export function CardCont({ }) {
-return(
-<div
-            style={{
-              display: "flex",
-              height: "40vh",
-              flexWrap: "wrap",
-              width: "100vh",
-              marginTop: 150,
-              marginLeft: "auto",
-              marginRight: "auto",
-              justifyContent: "center",
-            }}
-            >
-            <Card
-              sx={{
-              width: "40vh",
-              height: "20vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              
-              border: `1px solid`, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-                <Typography
-                  gutterBottom
-                  variant="h5"
-                  component="div"
-                 
-                >
-                  Capabilities
-                </Typography>
-                <Typography
-                  variant="body2"
-                 
-                >
-                  Remembers what you've said and uses it to generate responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "20vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-             
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-                <Typography
-                  gutterBottom
-                  variant="h5"
-                  component="div"
-                  
-                >
-                  Limitations
-                </Typography>
-                <Typography
-                  variant="body2"
-                  
-                >
-                  May not always provide accurate or relevant responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-              
-                <Typography
-                  variant="body2"
-                 
-                >
-                  Allows users to provide follow-up connections
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-              
-                <Typography
-                  variant="body2"
-                >
-                 May occasionally provide harmful or biased responses
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-            
-                <Typography
-                  variant="body2"
-                >
-                  trained to decline to provide information on inappropriate topics
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-          <Card
-            sx={{
-              width: "40vh",
-              height: "10vh",
-              mt: 2,
-              mr: 3,
-              borderRadius: "16px",
-              border: `1px solid `, // Card border
-            }}
-          >
-            <CardActionArea>
-              <CardContent>
-            
-                <Typography
-                  variant="body2"
-                  
-                >
-                  Limited knowlegde of the world after Oct 2024
-                </Typography>
-              </CardContent>
-            </CardActionArea>
-          </Card>
-        </div>
-
-
-
-        );
-
+export function CardCont({ username }) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100vh",
+        textAlign: "center",
+        padding: "0 20px",
+      }}
+    >
+      <Typography
+        variant="h2"
+        sx={{
+          fontWeight: 700,
+          background: "linear-gradient(45deg, #FF6B6B, #4ECDC4)",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          color: "transparent",
+          marginBottom: 2,
+        }}
+      >
+        Hello {username}!
+      </Typography>
+      <Typography
+        variant="h4"
+        sx={{
+          maxWidth: 800,
+          background: "linear-gradient(45deg, #6c5ce7, #a8e6cf)",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          color: "transparent",
+          lineHeight: 1.5,
+        }}
+      >
+        Welcome to LLM Analyzer, where you can explore and interact with prompts in 
+        exciting new ways.
+      </Typography>
+    </Box>
+  );
 }

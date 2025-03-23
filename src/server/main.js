@@ -404,7 +404,6 @@ app.put("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
 });
 
 
-
 // Modify check-auth to include chat groups
 app.get("/api/check-auth", async (req, res) => {
   if (req.session.userId) {
@@ -1695,41 +1694,6 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
   }
 });
 
-
-
-app.get("/api/image/:id", isAuthenticated, async (req, res) => {
-  try {
-      const { id } = req.params;
-
-      // Fetch the RunModel using the provided ID and populate messages
-      const runData = await RunModel.findById(id).populate("run.messages");
-
-      if (!runData) {
-          return res.status(404).json({ error: "Run not found" });
-      }
-
-      // Extract promptTokens and completionTokens for each message
-      const tokenData = runData.run.messages.map(msg => (
-        
-        
-        
-        {
-
-          promptTokens: msg.promptTokens || 0, // Default to 0 if missing
-          completionTokens: msg.completionTokens || 0 // Default to 0 if missing
-      }));
-
-
-      console.log("Token data:", tokenData);
-
-      // Send response to client
-      return res.json({ tokens: tokenData });
-
-  } catch (error) {
-      console.error("Error fetching image data:", error);
-      return res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 // Endpoint to get chats for a chat group
 app.get("/api/chatgroup/:id/chats", isAuthenticated, async (req, res) => {

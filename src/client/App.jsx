@@ -1,50 +1,36 @@
-import React, { useCallback, useEffect, useRef } from 'react'; // Step 1: Import useRef
-import { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import Box from '@mui/material/Box';
-
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { io } from 'socket.io-client';
-import { useMemo } from 'react';
-
-
-
 import TextField from '@mui/material/TextField';
-
-
-import axios from 'axios'; // Add axios for HTTP requests
-import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 
-
-import {Login } from './Login';
-import {Signup } from './Signup';
+import { Login } from './Login';
+import { Signup } from './Signup';
 import { ChartViewer } from './ChartViewer';
 import { RightDrawer } from './RightDrawer';
 import { BottomBar } from './BottomBar';
+import { LoadingChat } from './LoadingChat';
 
 import CircularProgress from '@mui/material/CircularProgress';
-
+import LinearProgress from '@mui/material/LinearProgress';
 import EditIcon from '@mui/icons-material/Edit';
-
-
 import ReactMarkdown from 'react-markdown';
 
 import { CardCont } from './CardCont';
 
-import { ThemeProvider, createTheme, useColorScheme } from '@mui/material/styles';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { dark } from '@mui/material/styles/createPalette';
 import { LeftDrawer } from './LeftDrawer';
 import { Appbar } from './AppBar';
-import { use } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { ChatMessage } from './ChatMessage';
+import { Home } from './Home';
 
-import {Home} from './Home';
-import { set } from 'mongoose';
-
-
+import { useActiveChats } from './useActiveChats';
 
 const theme = createTheme({
   colorSchemes: {
@@ -53,55 +39,94 @@ const theme = createTheme({
 });
 
 function App() {
-  
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('isAuthenticated', false);
   const [username, setUsername] = useLocalStorage('username', '');
   const [imageData, setImageData] = useLocalStorage('imageData', '');
   const [chatGroups, setChatGroups] = useState([]);
   
-  
   return (
-    
-      <Router>
-        <Routes>
-          <Route 
-            path="/" 
-            element={ <Home/>
-            } />
-          <Route path="/c/:currentChatGroupId"  element= {isAuthenticated ? <MainApp key={window.location.pathname} isAuthenticated={isAuthenticated} setIsAuthenticated={setIsAuthenticated} setUsername = {setUsername} username={username} imageData={imageData} setImageData={setImageData} chatGroups={chatGroups} setChatGroups={setChatGroups}/> : <Navigate to="/signup" />} />  
-          <Route path="/login" element={ <Login setIsAuthenticated={setIsAuthenticated} setUsername={setUsername} setImageData={setImageData} /> } />
-          <Route path="/signup" element={ <Signup setIsAuthenticated={setIsAuthenticated} setUsername={setUsername}  setImageData={setImageData}/> } />
-          <Route path="/charts" element= {(isAuthenticated) ? <ChartViewer /> : <Navigate to="/signup" />} />
-
-        </Routes>
-     
-      </Router>
-
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home/>} />
+        <Route 
+          path="/c/:currentChatGroupId" 
+          element={
+            isAuthenticated ? (
+              <MainApp 
+                isAuthenticated={isAuthenticated} 
+                setIsAuthenticated={setIsAuthenticated} 
+                setUsername={setUsername} 
+                username={username} 
+                imageData={imageData} 
+                setImageData={setImageData} 
+                chatGroups={chatGroups} 
+                setChatGroups={setChatGroups}
+              />
+            ) : (
+              <Navigate to="/signup" />
+            )
+          } 
+        />  
+        <Route 
+          path="/login" 
+          element={
+            <Login 
+              setIsAuthenticated={setIsAuthenticated} 
+              setUsername={setUsername} 
+              setImageData={setImageData} 
+            />
+          } 
+        />
+        <Route 
+          path="/signup" 
+          element={
+            <Signup 
+              setIsAuthenticated={setIsAuthenticated} 
+              setUsername={setUsername} 
+              setImageData={setImageData}
+            />
+          } 
+        />
+        <Route 
+          path="/charts" 
+          element={
+            isAuthenticated ? (
+              <ChartViewer />
+            ) : (
+              <Navigate to="/signup" />
+            )
+          } 
+        />
+      </Routes>
+    </Router>
   );
 }
 
 function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGroups, setChatGroups, setImageData }) {
-  // Add new state for messages
+  const navigate = useNavigate();
   const { currentChatGroupId } = useParams();
-
- 
+  
+  // UI state
   const [state, setState] = useState({
     left: true,
     right: false,
   });
   const [model, setModel] = useState('gpt-4o-mini');
   const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef(null); // Step 2: Define ref
-  const [selectedFile, setSelectedFile] = useState(null); // new state
+  const messagesEndRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [leftWidth, setLeftWidth] = useState(200);
   const [resizingLeft, setResizingLeft] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [tokens, setTokens] = useState(0);
   const [characterTokens, setCharacterTokens] = useState(0);  
-  const [memory , setMemory] = useState(true);
+  const [memory, setMemory] = useState(true);
   const socketRef = useRef(null); 
   const [send, setSend] = useState(false);
   const [messages, setMessages] = useState([]);
+  
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   
   
@@ -162,7 +187,6 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
     };
   }, [inputValue, model]);
 
- 
 
   const handleEditing = useCallback ( (id) => {
     setMessages((prevMessages) =>
@@ -207,7 +231,6 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
     );
 
     setSend(true);
-
     try {
       const response = await axios.post('/api/tokens', { text: LocalMessage, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
       console.log('estimating :', response.data);
@@ -230,15 +253,12 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
         `/api/chat?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id} `
       );
     }
-
     else{
 
       eventSource = new EventSource(
         `/api/chatCompletion?prompt=${encodeURIComponent(LocalMessage)}&model=${model || "gpt-3.5-turbo"}&currentChatGroupId=${currentChatGroupId}&messageId=${id} `
       );
-    }
-
-      
+    } 
       eventSource.onmessage = (event) => {
         // Check if the message is the "[DONE]" indicator.
         if (event.data === "[DONE]") {
@@ -280,7 +300,6 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
           ));
             
         }
-    
 
       eventSource.onerror = (error) => {
         console.error('Error in EventSource:', error);
@@ -298,8 +317,6 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
 
   });
   
-
-
 
   const [chat, setChat] = useState(false);
   const isBrowserDefaultDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -402,57 +419,126 @@ useEffect(() => {
   }
 }, [messages]);
 
-
-
- 
   
-  useEffect(() => {
-    // Load chats for current chat group
-    const loadChats = async () => {
-      try {
-        const response = await axios.get(`/api/chatgroup/${currentChatGroupId}/chats`);
-        if(response.data.messages.length === 0) {
-            console.log('No chats found');
-            setChat(false);
-        }
-        else{
-
-          setChat(true);
-        }
-        setMessages(response.data.messages.map( (chat, index) => ([
-          chat.fileName? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false} : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse, load: false },
-          { text: chat.AIMessage, sender: 'ai', id: chat._id, complete: true },
-         
-        ])).flat());
-        setModel(response.data.model);
-        setMemory(response.data.memory);
+  // Import the IndexDB hook for chat groups caching
+  const { addActiveChat, updateActiveChat, activeChats,clearActiveChats } = useActiveChats();
   
-        if(response.data.assistant !== "" && response.data.assistant !== undefined){
-          setAssistantText(response.data.assistant);
-          setSelectedOption("Role prompting");
-
-        }
-        
-       
-        else if(response.data.tool !== "" && response.data.tool !== undefined){
-          setToolType(response.data.tool);
-          setSelectedOption("React prompting");
-        }
-        else{
-          setAssistantText("");
-          setToolType("");
-          setSelectedOption("");
-        }
-
+  // Memoize the fetchAndUpdateCache function to prevent it from being recreated on each render
+  const fetchAndUpdateCache = useCallback(async () => {
+    try {
+      const response = await axios.get(`/api/chatgroup/${currentChatGroupId}/chats`);
       
+      if (response.data.messages.length === 0) {
+        console.log('No chats found');
+        setChat(false);
+      } else {
+        setChat(true);
+      }
+      
+      const formattedMessages = response.data.messages.map((chat) => ([
+        chat.fileName 
+          ? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false } 
+          : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse, load: false },
+        { text: chat.AIMessage, sender: 'ai', id: chat._id, complete: true },
+      ])).flat();
+      
+      setMessages(formattedMessages);
+      
+      setModel(response.data.model);
+      setMemory(response.data.memory);
+
+      if (response.data.assistant !== "" && response.data.assistant !== undefined) {
+        setAssistantText(response.data.assistant);
+        setSelectedOption("Role prompting");
+      } else if (response.data.tool !== "" && response.data.tool !== undefined) {
+        setToolType(response.data.tool);
+        setSelectedOption("React prompting");
+      } else {
+        setAssistantText("");
+        setToolType("");
+        setSelectedOption("");
+      }
+      
+      // Update cache with the fetched data
+      const chatGroupData = {
+        _id: currentChatGroupId,
+        messages: response.data.messages,
+        model: response.data.model,
+        memory: response.data.memory,
+        assistant: response.data.assistant,
+        tool: response.data.tool,
+        timestamp: new Date().toISOString()
+      };
+
+      addActiveChat(chatGroupData);
+
+    } catch (error) {
+      console.error('Error fetching from API:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentChatGroupId, addActiveChat, setChat, setMessages, setModel, setMemory, setAssistantText, setSelectedOption, setToolType, setIsLoading]);
+  
+  // Load chat data when component mounts or currentChatGroupId changes
+  useEffect(() => {
+    const loadChats = async () => {
+      if (!currentChatGroupId) return;
+      
+      setIsLoading(true);
+      
+      try {
+        // Find the cached group
+        const cachedGroup = activeChats.find(group => group._id === currentChatGroupId);
+
+        
+        if (cachedGroup && cachedGroup.messages) {
+          console.log('Loading chat from cache');
+          // Use cached data
+          if (cachedGroup.messages.length === 0) {
+            console.log('No chats found in cache');
+            setChat(false);
+          } else {
+            setChat(true);
+          }
+          
+          setMessages(cachedGroup.messages.map((chat) => ([
+            chat.fileName 
+              ? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false } 
+              : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse, load: false },
+            { text: chat.AIMessage, sender: 'ai', id: chat._id, complete: true },
+          ])).flat());
+          
+          setModel(cachedGroup.model || 'gpt-4o-mini');
+          setMemory(cachedGroup.memory !== undefined ? cachedGroup.memory : true);
+    
+          if (cachedGroup.assistant !== "" && cachedGroup.assistant !== undefined) {
+            setAssistantText(cachedGroup.assistant);
+            setSelectedOption("Role prompting");
+          } else if (cachedGroup.tool !== "" && cachedGroup.tool !== undefined) {
+            setToolType(cachedGroup.tool);
+            setSelectedOption("React prompting");
+          } else {
+            setAssistantText("");
+            setToolType("");
+            setSelectedOption("");
+          }
+          
+          // Fetch from API in background to update cache
+          setTimeout(() => {
+            fetchAndUpdateCache();
+          }, 100);
+        } else {
+          // No cache, fetch from API
+          await fetchAndUpdateCache();
+        }
       } catch (error) {
         console.error('Error loading chats:', error);
+        setIsLoading(false);
       }
     };
     
-      loadChats();
-    
-  }, []);
+    loadChats();
+  }, [currentChatGroupId, fetchAndUpdateCache]); // Only depend on currentChatGroupId and the memoized function
 
   useEffect(() => {
     if (messagesEndRef.current && !send) {
@@ -495,21 +581,12 @@ const handleSendClick = () => {
       if (event.type === 'keydown') {
       event.preventDefault();
       }
-     
-
 
       if (inputValue.trim() && inputValue.length <= 3000) {
        
-      
-    
-
         let tempValue = inputValue;
         setInputValue('');
-        
-        
-        
-          
-          
+         
          const userMessage = selectedFile ? { text: tempValue, sender: 'user', file: selectedFile.name , edit: false, id: null, load: true} : { text: tempValue, sender: 'user' , edit: false, id: null, load: true};
          setMessages([...messages, userMessage]);
          setChat(true);
@@ -746,6 +823,8 @@ const handleSendClick = () => {
         setIsAuthenticated(false);
         setUsername('');
         setImageData('');
+        clearActiveChats();
+
       
       }
     } catch (error) {
@@ -774,6 +853,7 @@ const handleSendClick = () => {
       themeMode={themeMode} 
       leftWidth={leftWidth} 
       username={username} 
+      setIsLoading={setIsLoading}
       model={model} 
     />
   , [chatGroups, currentChatGroupId, themeMode, leftWidth, username, model]);
@@ -808,7 +888,7 @@ const handleSendClick = () => {
     </Box>
   );
   const cardContent = () => (
-    <CardCont />
+    <CardCont  username = {username}/>
   );
   
 
@@ -831,17 +911,19 @@ const handleSendClick = () => {
       }}
     >
       {messages.map((message, index) => (
-  <React.Fragment key={message.id || index}>
+  <React.Fragment key={index}>
     <ChatMessage message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} tokens = {tokens} />
-    {message.load ? (<Box 
-      sx={{
-        position: 'relative',
-        width: '65vw',
-        display: 'flex',
-        justifyContent: 'flex-start',
-        
-      }}
-    > <Box sx={{ display: 'flex', alignItems: 'flex-start'}}>
+    {message.load ? (
+      <Box 
+        sx={{
+          position: 'relative',
+          width: '65vw',
+          display: 'flex',
+          justifyContent: 'flex-start',
+          mt: 1,
+          mb: 2
+        }}
+        > <Box sx={{ display: 'flex', alignItems: 'flex-start'}}>
        <CircularProgress size="1.5rem" />  
       </Box> </Box>)    : null}
   </React.Fragment>
@@ -916,11 +998,47 @@ const handleSendClick = () => {
       height: 'calc(100vh - 200px)',
     
     }}>
-      <Appbar  getMainWidth={getMainWidth} leftWidth={leftWidth}  state={state}  toggleDrawer={toggleDrawer}  themeMode={themeMode} setThemeMode={setThemeMode} username={username} handleLogOut={handleLogOut} model={model} setModel={setModel} imageData={imageData} setMemory = {setMemory} memory={memory} />
+      <Appbar 
+        getMainWidth={getMainWidth} 
+        leftWidth={leftWidth} 
+        state={state} 
+        toggleDrawer={toggleDrawer} 
+        themeMode={themeMode} 
+        setThemeMode={setThemeMode} 
+        username={username} 
+        handleLogOut={handleLogOut} 
+        model={model} 
+        setModel={setModel} 
+        imageData={imageData} 
+        setMemory={setMemory} 
+        memory={memory} 
+      />
 
-          { chat ? chatContent() : cardContent() }
-        
-          <BottomBar selectedFile={selectedFile}  setSelectedFile ={setSelectedFile}  currentChatGroupId ={currentChatGroupId} inputValue={inputValue} setInputValue={setInputValue} handleSendClick={handleSendClick}  state = {state} themeMode={themeMode} toggleDrawer = {toggleDrawer} handleImageClick={handleImageClick} send = {send} setSend={setSend} handleKeyPress={handleKeyPress} model = {model}  characterTokens={characterTokens} selectedOption={selectedOption} memory={memory}/>
+      {isLoading ? (
+        <LoadingChat themeMode={themeMode} />
+      ) : (
+        chat ? chatContent() : cardContent()
+      )}
+      
+      <BottomBar 
+        selectedFile={selectedFile} 
+        setSelectedFile={setSelectedFile} 
+        currentChatGroupId={currentChatGroupId} 
+        inputValue={inputValue} 
+        setInputValue={setInputValue} 
+        handleSendClick={handleSendClick} 
+        state={state} 
+        themeMode={themeMode} 
+        toggleDrawer={toggleDrawer} 
+        handleImageClick={handleImageClick} 
+        send={send} 
+        setSend={setSend} 
+        handleKeyPress={handleKeyPress} 
+        model={model} 
+        characterTokens={characterTokens} 
+        selectedOption={selectedOption} 
+        memory={memory}
+      />
 
 {state.left && ( <Box
           sx={{
@@ -1008,16 +1126,4 @@ const handleSendClick = () => {
 }
 
 
-
-
-
-
-
-
-
 export default App;
-
-
-
-
-

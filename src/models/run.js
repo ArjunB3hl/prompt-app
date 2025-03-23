@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { VectorStores } from "openai/resources/beta/vector-stores/vector-stores.mjs";
+
 const Schema = mongoose.Schema;
 
 const RunSchema = new Schema({

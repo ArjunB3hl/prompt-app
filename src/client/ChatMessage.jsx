@@ -36,7 +36,6 @@ export const ChatMessage = React.memo(
             };
 
         
-        
         return (
           <Box 
             sx={{
@@ -116,18 +115,17 @@ export const ChatMessage = React.memo(
                     borderRadius: message.sender === 'user' ? '15px' : '',
                     padding: '0px 15px',
                     wordWrap: 'break-word',
-                    position: 'relative', // Add position relative
+                    position: 'relative',
                   }}
                 >
                   <Typography>
                     {message.complete === false && message.text.length > 0 && (
                       <Typography variant="caption" sx={{ color: 'grey' }}>
-                        Predicting {tokens}  Tokens
+                        Predicting {tokens} Tokens
                       </Typography>
                     )}
                     <ReactMarkdown>{message.text}</ReactMarkdown>
                   </Typography>
-                
                 </Box>
                   {/* Add copy button for AI messages */}
                   {message.sender === 'ai' && (
@@ -208,8 +206,3 @@ export const ChatMessage = React.memo(
 
 
 });
-
-
-
-
-
