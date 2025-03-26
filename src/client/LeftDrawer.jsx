@@ -36,7 +36,9 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
       if (currentChatGroupId && chatGroups.length > 0) {
         const currentGroup = chatGroups.find(group => group._id === currentChatGroupId);
         if (currentGroup) {
-          addActiveChat(currentGroup);
+          addActiveChat(currentGroup).catch(err => {
+            console.error('Error adding chat to active chats:', err);
+          });
         }
       }
     }, [currentChatGroupId, chatGroups, addActiveChat]);
@@ -48,7 +50,7 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
     const handleDelete = async (chatGroupId) => {
         try {
           // Remove from active chats
-          removeActiveChat(chatGroupId);
+          await removeActiveChat(chatGroupId);
           
           const response = await axios.delete(`/api/chatgroup/${chatGroupId}`, {
             data: { currentChatGroupId }
@@ -75,10 +77,13 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
           setChatGroups(prevChatGroups => {
             const updatedChatGroups = prevChatGroups.map(group => {
               if (group._id === chatGroupId) {
-                group.name = name;
-                updateActiveChat(group);
+                const updatedGroup = { ...group, name };
+                // Use the updateActiveChat function instead
+                updateActiveChat(updatedGroup).catch(err => {
+                  console.error('Error updating active chat:', err);
+                });
+                return updatedGroup;
               }
-              
               return group;
             });
 

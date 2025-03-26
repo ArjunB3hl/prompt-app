@@ -101,10 +101,7 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           >
             <MenuIcon />
           </IconButton>
-          
-
-
-
+        
        
 
           <Box sx={{ maxWidth: 150, m: 0 }}>
@@ -131,11 +128,11 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           
         >
                     <MenuItem 
-            value={'o1-mini'} 
+            value={'o1-mini'}   
             disabled={memory}
             sx={{ 
               opacity: memory ? 0.3 : 1,
-            }}
+            }}     
           > 
             o1-mini 
           </MenuItem>
@@ -150,10 +147,6 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           </MenuItem>
           <MenuItem 
             value={'o3-mini'} 
-            disabled={memory}
-            sx={{ 
-              opacity: memory ? 0.3 : 1,
-            }}
           > 
             o3-mini
           </MenuItem>

@@ -111,7 +111,7 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
     left: true,
     right: false,
   });
-  const [model, setModel] = useState('gpt-4o-mini');
+  const [model, setModel] = useState('o3-mini');
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -231,15 +231,17 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
     );
 
     setSend(true);
-    try {
-      const response = await axios.post('/api/tokens', { text: LocalMessage, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
-      console.log('estimating :', response.data);
-      setTokens(response.data.estimatedCompletionTokens);
-       
-     }
-     catch (error) {
-       console.error('Error calculating tokens:', error);
-     }
+    if(assistantText === "" && toolType === "" && selectedFile === null){
+              try {
+                const response = await axios.post('/api/tokens', { text: LocalMessage, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
+                console.log('estimating :', response.data);
+                setTokens(response.data.estimatedCompletionTokens);
+                
+              }
+              catch (error) {
+                console.error('Error calculating tokens:', error);
+              }
+            }
 
   
 
@@ -477,7 +479,7 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentChatGroupId, addActiveChat, setChat, setMessages, setModel, setMemory, setAssistantText, setSelectedOption, setToolType, setIsLoading]);
+  }, [currentChatGroupId, addActiveChat]);
   
   // Load chat data when component mounts or currentChatGroupId changes
   useEffect(() => {
@@ -592,16 +594,17 @@ const handleSendClick = () => {
          setChat(true);
         
         
-       
-        try {
-          const response = await axios.post('/api/tokens', { text: userMessage.text, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
-          console.log('estimating :', response.data);
-          setTokens(response.data.estimatedCompletionTokens);
-           
-         }
-         catch (error) {
-           console.error('Error calculating tokens:', error);
-         }
+        if(assistantText === "" && toolType === "" && selectedFile === null){
+          try {
+            const response = await axios.post('/api/tokens', { text: userMessage.text, model: model || "gpt-3.5-turbo", chatGroupId: currentChatGroupId, memory: memory });
+            console.log('estimating :', response.data);
+            setTokens(response.data.estimatedCompletionTokens);
+            
+          }
+          catch (error) {
+            console.error('Error calculating tokens:', error);
+          }
+        }
 
          setSend(true);
          setSelectedFile(null);
@@ -776,10 +779,6 @@ const handleSendClick = () => {
 
                 return;
               }
-          
-
-
-
 
           }
           
@@ -796,7 +795,6 @@ const handleSendClick = () => {
           };
           
         }
-
 
         } catch (error) {
           console.error('Error fetching AI response:', error);

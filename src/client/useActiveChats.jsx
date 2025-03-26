@@ -10,16 +10,33 @@ export function useActiveChats() {
     updateActiveChat,
     removeActiveChat,
     clearActiveChats,
+    findActiveChatById,
     setIsLoading
   } = useActiveChatsDB();
 
+  // Add a utility function to help manage chat updates
+  const updateChatMessages = useCallback((chatId, messages) => {
+    const chat = findActiveChatById(chatId);
+    if (chat) {
+      return updateActiveChat({
+        ...chat,
+        messages,
+        timestamp: new Date().toISOString()
+      });
+    }
+    return Promise.reject(new Error(`Chat with ID ${chatId} not found`));
+  }, [findActiveChatById, updateActiveChat]);
+
   return {
     activeChats,
-    setIsLoading,
+    isLoading,
+    error,
     addActiveChat,
     updateActiveChat,
     removeActiveChat,
     clearActiveChats,
-    error
+    findActiveChatById,
+    updateChatMessages,
+    setIsLoading
   };
 }

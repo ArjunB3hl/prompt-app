@@ -27,14 +27,8 @@ export function useIndexedDB(storeName, initialValue = []) {
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
           
-          // Create object stores if they don't exist
           if (!db.objectStoreNames.contains('activeChats')) {
-            const activeChatsStore = db.createObjectStore('activeChats', { keyPath: 'id' });
-            activeChatsStore.createIndex('timestamp', 'timestamp', { unique: false });
-          }
-          
-          if (!db.objectStoreNames.contains('chatGroups')) {
-            const chatGroupsStore = db.createObjectStore('chatGroups', { keyPath: '_id' });
+            const chatGroupsStore = db.createObjectStore('activeChats', { keyPath: '_id' });
             chatGroupsStore.createIndex('timestamp', 'timestamp', { unique: false });
           }
         };
@@ -94,12 +88,25 @@ export function useIndexedDB(storeName, initialValue = []) {
 
   // Add an item to the store
   const addItem = useCallback(async (item) => {
-    if (!item || (storeName === 'activeChats' && !item.id) || (storeName === 'chatGroups' && !item._id)) {
-      return;
+    if (!item) {
+      throw new Error('Item cannot be null or undefined');
     }
     
-    try {
+    // Check ID based on store type
+    const keyPath = storeName === 'activeChats' ? '_id' : 'id';
+    if (!item[keyPath]) {
+      throw new Error(`Items in ${storeName} store must have a ${keyPath}`);
+    }
+    
+    return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
+      
+      request.onerror = (event) => {
+        const error = event.target.error;
+        console.error('Error opening IndexedDB:', error);
+        setError(error);
+        reject(error);
+      };
       
       request.onsuccess = (event) => {
         const db = event.target.result;
@@ -118,113 +125,116 @@ export function useIndexedDB(storeName, initialValue = []) {
         addRequest.onsuccess = () => {
           // Update the state with the new data
           setData(prevData => {
-            // Check if item already exists
-            const exists = prevData.some(i => 
-              (storeName === 'activeChats' && i.id === item.id) || 
-              (storeName === 'chatGroups' && i._id === item._id)
-            );
+            // Check if item already exists by key
+            const itemKey = item[keyPath];
+            const exists = prevData.some(i => i[keyPath] === itemKey);
             
+            let newData;
             if (exists) {
               // Update existing item
-              return prevData.map(i => 
-                (storeName === 'activeChats' && i.id === item.id) || 
-                (storeName === 'chatGroups' && i._id === item._id) 
-                  ? itemToAdd 
-                  : i
-              ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+              newData = prevData.map(i => 
+                i[keyPath] === itemKey ? itemToAdd : i
+              );
             } else {
               // Add new item
-              return [...prevData, itemToAdd]
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+              newData = [...prevData, itemToAdd];
             }
+            
+            // Sort by timestamp (newest first)
+            return newData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
           });
+          
+          resolve(itemToAdd);
         };
         
         addRequest.onerror = (event) => {
-          console.error('Error adding item to IndexedDB:', event.target.error);
-          setError(event.target.error);
+          const error = event.target.error;
+          console.error('Error adding item to IndexedDB:', error);
+          setError(error);
+          reject(error);
         };
         
         transaction.oncomplete = () => {
           db.close();
         };
       };
-      
-      request.onerror = (event) => {
-        console.error('Error opening IndexedDB:', event.target.error);
-        setError(event.target.error);
-      };
-    } catch (err) {
-      console.error('Error in addItem:', err);
-      setError(err);
-    }
+    });
   }, [storeName]);
 
   // Update an item in the store
   const updateItem = useCallback(async (id, updates) => {
-    if (!id) return;
+    if (!id) {
+      throw new Error('ID cannot be null or undefined');
+    }
     
-    try {
+    return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
+      
+      request.onerror = (event) => {
+        const error = event.target.error;
+        console.error('Error opening IndexedDB:', error);
+        setError(error);
+        reject(error);
+      };
       
       request.onsuccess = (event) => {
         const db = event.target.result;
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
+        const keyPath = storeName === 'activeChats' ? '_id' : 'id';
         
         // Get the current item
-        const getRequest = store.get(storeName === 'activeChats' ? id : id);
+        const getRequest = store.get(id);
         
         getRequest.onsuccess = () => {
           const item = getRequest.result;
-          if (item) {
-            // Update the item
-            const updatedItem = {
-              ...item,
-              ...updates,
-              timestamp: new Date().toISOString()
-            };
-            
-            // Put the updated item back
-            const updateRequest = store.put(updatedItem);
-            
-            updateRequest.onsuccess = () => {
-              // Update the state with the new data
-              setData(prevData => 
-                prevData.map(i => 
-                  (storeName === 'activeChats' && i.id === id) || 
-                  (storeName === 'chatGroups' && i._id === id) 
-                    ? updatedItem 
-                    : i
-                ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-              );
-            };
-            
-            updateRequest.onerror = (event) => {
-              console.error('Error updating item in IndexedDB:', event.target.error);
-              setError(event.target.error);
-            };
+          if (!item) {
+            const error = new Error(`Item with ${keyPath}=${id} not found`);
+            setError(error);
+            reject(error);
+            return;
           }
+          
+          // Update the item
+          const updatedItem = {
+            ...item,
+            ...updates,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Put the updated item back
+          const updateRequest = store.put(updatedItem);
+          
+          updateRequest.onsuccess = () => {
+            // Update the state with the new data
+            setData(prevData => 
+              prevData.map(i => 
+                i[keyPath] === id ? updatedItem : i
+              ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            );
+            resolve(updatedItem);
+          };
+          
+          updateRequest.onerror = (event) => {
+            const error = event.target.error;
+            console.error('Error updating item in IndexedDB:', error);
+            setError(error);
+            reject(error);
+          };
         };
         
         getRequest.onerror = (event) => {
-          console.error('Error getting item from IndexedDB:', event.target.error);
-          setError(event.target.error);
+          const error = event.target.error;
+          console.error('Error getting item from IndexedDB:', error);
+          setError(error);
+          reject(error);
         };
         
         transaction.oncomplete = () => {
           db.close();
         };
       };
-      
-      request.onerror = (event) => {
-        console.error('Error opening IndexedDB:', event.target.error);
-        setError(event.target.error);
-      };
-    } catch (err) {
-      console.error('Error in updateItem:', err);
-      setError(err);
-    }
+    });
   }, [storeName]);
 
   // Remove an item from the store
@@ -246,8 +256,7 @@ export function useIndexedDB(storeName, initialValue = []) {
           // Update the state by removing the item
           setData(prevData => 
             prevData.filter(i => 
-              !(storeName === 'activeChats' && i.id === id) && 
-              !(storeName === 'chatGroups' && i._id === id)
+              !(storeName === 'activeChats' && i._id === id)
             )
           );
         };
@@ -330,38 +339,79 @@ export function useActiveChatsDB() {
     data: activeChats,
     isLoading,
     error,
-    addItem: addActiveChat,
-    updateItem: updateActiveChat,
-    removeItem: removeActiveChat,
+    addItem: addChatToStore,
+    updateItem: updateChatInStore,
+    removeItem: removeChatFromStore,
     clearStore: clearActiveChats,
     setIsLoading
   } = useIndexedDB('activeChats', []);
 
-   // Cache chat groups
-  const addChat = useCallback((chatGroups) => {
-    if (!chatGroups || !Array.isArray(chatGroups)) return;
+  // Add a chat group to the store - handles both single objects and arrays
+  const addActiveChat = useCallback((chatData) => {
+    if (!chatData) return Promise.reject(new Error('No chat data provided'));
     
-    // Add timestamp to each chat group if not present
+    // Handle both single objects and arrays
+    const isArray = Array.isArray(chatData);
+    const dataToAdd = isArray ? chatData : [chatData];
+    
+    // Process each chat item
     const timestamp = new Date().toISOString();
-    chatGroups.forEach(group => {
-      addActiveChat({
-        ...group,
-        timestamp: group.timestamp || timestamp
-      });
-    });
-  }, [addActiveChat]);
+    
+    // Use Promise.all to handle multiple items
+    return Promise.all(
+      dataToAdd.map(item => {
+        // Make sure each item has an _id
+        if (!item._id) {
+          console.error('Chat data missing _id', item);
+          return Promise.reject(new Error('Chat data missing _id'));
+        }
+        
+        return addChatToStore({
+          ...item,
+          timestamp: item.timestamp || timestamp
+        });
+      })
+    );
+  }, [addChatToStore]);
+
+  // Update a chat group in the store
+  const updateActiveChat = useCallback((chatData) => {
+    if (!chatData || !chatData._id) {
+      return Promise.reject(new Error('Invalid chat data or missing _id'));
+    }
+    
+    // For updates, we pass the id separately from the updates
+    return updateChatInStore(chatData._id, chatData);
+  }, [updateChatInStore]);
+  
+  // Remove a chat group from the store
+  const removeActiveChat = useCallback((chatId) => {
+    if (!chatId) {
+      return Promise.reject(new Error('Missing chat ID'));
+    }
+    
+    return removeChatFromStore(chatId);
+  }, [removeChatFromStore]);
+
+  // Find a chat group by ID
+  const findActiveChatById = useCallback((chatId) => {
+    if (!chatId) return null;
+    return activeChats.find(chat => chat._id === chatId) || null;
+  }, [activeChats]);
+
   return {
     activeChats,
     isLoading,
     error,
-    addActiveChat: addChat,
+    addActiveChat,
     updateActiveChat,
     removeActiveChat,
     clearActiveChats,
+    findActiveChatById,
     setIsLoading
   };
 }
 
-  
+
 
 

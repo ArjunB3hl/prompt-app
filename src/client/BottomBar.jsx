@@ -181,9 +181,9 @@ export function BottomBar({ selectedFile, setSelectedFile, currentChatGroupId, i
           maxRows={7}
           value={isGenerating ? '' : inputValue}
           onChange={(e) => !isGenerating && setInputValue(e.target.value)}
-          onKeyDown={!isGenerating && !send  && ((model === "gpt-4o-mini" || model === "gpt-3.5-turbo" ) || memory === false) ? handleKeyPress : null}
-          error={inputValue.length > 3000 || (!(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") && memory === true)}
-          helperText={inputValue.length > 3000 ? 'Character limit has been reached' : !(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") && memory === true  ? 'Memory is not availble with these models' : ''} 
+          onKeyDown={!isGenerating && !send && (memory === false || model === "o3-mini"  || model === "gpt-4o-mini" || model === "gpt-3.5-turbo")  ? handleKeyPress : null}
+          error={inputValue.length > 3000 || !(memory === false || model === "o3-mini"  || model === "gpt-4o-mini" || model === "gpt-3.5-turbo")}
+          helperText={inputValue.length > 3000 ? 'Character limit has been reached'  : !(memory === false || model === "o3-mini"  || model === "gpt-4o-mini" || model === "gpt-3.5-turbo") ? 'Memory is not available for this model' : ''} 
           sx={{
             flex: 1,
             "& .MuiInputBase-root": {

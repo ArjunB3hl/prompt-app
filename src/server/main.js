@@ -61,8 +61,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -151,14 +149,14 @@ app.get('/oauth2callback', async (req, res) => {
         // Create new thread and assistant for the new user
         const emptyThread = await openai.beta.threads.create();
         const myAssistant = await openai.beta.assistants.create({
-          model: "gpt-4o-mini",
+          model: "o3-mini",
         });
 
         // Create a default chat group for the new user
         chatGroup = new RunModel({
           name: "New Chat",
           user: user._id,
-          run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+          run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
         });
         await chatGroup.save();
       } else {
@@ -222,7 +220,7 @@ app.post("/api/signup", async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
        
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -232,7 +230,7 @@ app.post("/api/signup", async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
     });
     await chatGroup.save();
 
@@ -317,7 +315,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
       
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -328,7 +326,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "o3-mini", memory: true },
     });
     await chatGroup.save();
    
@@ -364,7 +362,7 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
        
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -374,7 +372,7 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
      chatGroup = new RunModel({
       name: "New Chat",
       user: req.session.userId,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
     });
     await chatGroup.save();
 
@@ -1117,14 +1115,17 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
 
       
       if(myAssistant.model !== responseData.model){ 
+        console.log("Assistant model doesn't match ", responseData.model);
 
         await openai.beta.assistants.update(run.run.AssistantId, {
           model: responseData.model,
           tools : [],
+          reasoning_effort: responseData.model === "o3-mini" ? "medium" : null,
         });
       }
       
       if (responseData.assistant !== '') {
+        console.log("response.assistant isn't null ", responseData.model);
         console.log("Assistant: ", responseData.assistant);
       
         // Define clear roleplay instructions
@@ -1136,28 +1137,23 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         ${responseData.assistant}`;
       
         await openai.beta.assistants.update(run.run.AssistantId, {
-          model: 'gpt-4o',
+          model: "gpt-4o",
           instructions: roleplayInstructions,
         });
 
       }
       
       else{
-        if(myAssistant.instructions !== null){
+        console.log("response.assistant is null but doesn;t match the instruction in Assistant ", responseData.model);
+        if(myAssistant.instructions !== "" || myAssistant.instructions !== null){
           await openai.beta.assistants.update(run.run.AssistantId, {
 
+            model: responseData.model,
             instructions: '',
           });
 
       } }
-    
-    
-
     // Create a new run with the assistant
-
-    
-    
-    
 
     let aiMessage = "";
     let promptTokens = 0;
@@ -1169,6 +1165,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         assistant_id: run.run.AssistantId,
         stream: true,
         model: responseData.model,
+        reasoning_effort: responseData.model === "o3-mini"  ? "medium" : null,
      
       
     });
@@ -1212,13 +1209,6 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
                     console.error("Error processing stream:", error);
                 }
               }
-    
-
-    
-
-    
-   
-    
 
     let chat =  null;
     // Save the chat message in the database
@@ -1273,7 +1263,6 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
   }
     
 
-  
 
     // If a file was attached (i.e. vectorStoreId exists) then update the message
     if (run.run.vectorStoreId) {
@@ -1333,8 +1322,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
         return res.status(404).json({ error: "Chat group not found" });
     }
 
-    
-
     let estimatedCompletionTokens = 9999999999;
 
        // Load the correct tokenizer for the model
@@ -1369,7 +1356,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
                 console.error(error);
               }
               
-             
 
             }
             else{
@@ -1398,9 +1384,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
               }
 
             }
-
-    
-
     
     // Return token estimates
     return res.json({
@@ -1542,26 +1525,24 @@ app.post("/api/judge", isAuthenticated, async (req, res) => {
     const AIMessage = message.AIMessage;
 
 
-    let completion = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview",
-      web_search_options: {},
-      messages: [{
-          "role": "user",
-          "content": UserMessage
-      }],
-  });
+    const response = await openai.responses.create({
+      model: "gpt-4o",
+      tools: [ { type: "web_search_preview" } ],
+      input: UserMessage,
+    });
+    
+    console.log(response.output_text);
+    
+    const news = response.output_text;
 
-  
-  console.log(completion.choices[0].message.content);
-  const news = completion.choices[0].message.content;
   const evaluationEvent = z.object({
     accuracy: z.number(),
     coherence: z.number(),
     relevance: z.number(),
   });
 
- completion = await openai.beta.chat.completions.parse({
-    model: "gpt-4o",
+ const completion = await openai.beta.chat.completions.parse({
+    model: "o1",
     messages: [
       { role: "system", content: "Extract the event information." },
       { role: "user", content: UserMessage },
@@ -1628,16 +1609,15 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
           }
 
           // Get factual information using web search to help judging
-          let completion = await openai.chat.completions.create({
-            model: "gpt-4o-search-preview",
-            web_search_options: {},
-            messages: [{
-                "role": "user",
-                "content": UserMessage
-            }],
+          const response = await openai.responses.create({
+            model: "gpt-4o",
+            tools: [ { type: "web_search_preview" } ],
+            input: UserMessage,
           });
           
-          const news = completion.choices[0].message.content;
+          console.log(response.output_text);
+          
+          const news = response.output_text;
           
           // Define the schema for the evaluation response
           const evaluationEvent = z.object({
@@ -1647,8 +1627,8 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
           });
           
           // Get the evaluation
-          completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4o",
+          const completion = await openai.beta.chat.completions.parse({
+            model: "o1",
             messages: [
               { role: "system", content: "Extract the event information." },
               { role: "user", content: UserMessage },
@@ -1678,7 +1658,6 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
         }
       }
     }
-    
     return res.json({ 
       success: true, 
       stats: {
@@ -1758,7 +1737,6 @@ io.on('connection', (socket) => {
       console.error("Error fetching character tokens:", error);
    
     }
-
 
 
   }
