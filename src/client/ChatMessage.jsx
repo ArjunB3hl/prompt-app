@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 
 export const ChatMessage = React.memo(
-    ({message, handleEditing, handleSave, handleCancel, tokens})  =>
+    ({message, handleEditing, handleSave, handleCancel, tokens, toolType, assistantText})  =>
       
     {
         const [LocalMessage, setLocalMessage] = useState(message.text);
@@ -119,7 +119,7 @@ export const ChatMessage = React.memo(
                   }}
                 >
                   <Typography>
-                    {message.complete === false && message.text.length > 0 && (
+                    {message.complete === false && message.text.length > 0 && (assistantText === '' || assistantText === undefined)  && (toolType === '' || toolType === undefined) && (
                       <Typography variant="caption" sx={{ color: 'grey' }}>
                         Predicting {tokens} Tokens
                       </Typography>
@@ -128,7 +128,7 @@ export const ChatMessage = React.memo(
                   </Typography>
                 </Box>
                   {/* Add copy button for AI messages */}
-                  {message.sender === 'ai' && (
+                  {message.sender === 'ai' && message.complete === true && (
                     <> 
                     <Box
                       className="copy-icon"

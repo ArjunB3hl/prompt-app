@@ -26,6 +26,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Tooltip from '@mui/material/Tooltip';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 
 export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode, setThemeMode, username, handleLogOut, model, setModel,imageData,setMemory, memory}) {
@@ -101,10 +102,7 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           >
             <MenuIcon />
           </IconButton>
-          
-
-
-
+        
        
 
           <Box sx={{ maxWidth: 150, m: 0 }}>
@@ -131,11 +129,11 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           
         >
                     <MenuItem 
-            value={'o1-mini'} 
+            value={'o1-mini'}   
             disabled={memory}
             sx={{ 
               opacity: memory ? 0.3 : 1,
-            }}
+            }}     
           > 
             o1-mini 
           </MenuItem>
@@ -150,10 +148,6 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           </MenuItem>
           <MenuItem 
             value={'o3-mini'} 
-            disabled={memory}
-            sx={{ 
-              opacity: memory ? 0.3 : 1,
-            }}
           > 
             o3-mini
           </MenuItem>
@@ -180,7 +174,7 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
         />
       }
       label={
-        <Typography variant="caption">Use Memory</Typography> // Smaller text
+        <Typography  variant="caption">Use Memory</Typography> // Smaller text
       }
       sx={{ 
         mt: 0.5, // Add a small top margin
@@ -249,6 +243,8 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           Log out
           
           </MenuItem>
+
+
           <MenuItem>
           
          <Box sx={{  }}>
@@ -269,6 +265,18 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
           
           
           </MenuItem>
+
+          <MenuItem  onClick={() => {
+  window.open('/help', '_blank');
+}}> 
+          <ListItemIcon>
+            <HelpOutlineIcon />
+          </ListItemIcon>
+          Help
+          
+          </MenuItem>
+     
+
         </Menu>
            
 

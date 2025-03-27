@@ -63,8 +63,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-
-
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -166,14 +164,14 @@ app.get('/oauth2callback', async (req, res) => {
         // Create new thread and assistant for the new user
         const emptyThread = await openai.beta.threads.create();
         const myAssistant = await openai.beta.assistants.create({
-          model: "gpt-4o-mini",
+          model: "o3-mini",
         });
 
         // Create a default chat group for the new user
         chatGroup = new RunModel({
           name: "New Chat",
           user: user._id,
-          run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+          run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
         });
         await chatGroup.save();
       } else {
@@ -237,7 +235,7 @@ app.post("/api/signup", async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
        
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -247,7 +245,7 @@ app.post("/api/signup", async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
     });
     await chatGroup.save();
 
@@ -332,7 +330,7 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
       
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -343,12 +341,15 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
     const chatGroup = new RunModel({
       name: "New Chat",
       user: user._id,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "o3-mini", memory: true },
     });
     await chatGroup.save();
+
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
    
 
-    res.json({ name: chatGroup.name,chatGroupId: chatGroup._id });
+    res.json({ name: chatGroup.name,chatGroupId: chatGroup._id, timestamp: chatGroup.updatedAt });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -379,7 +380,7 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
     const [myAssistant, emptyThread] = await Promise.all([
       openai.beta.assistants.create({
        
-        model: "gpt-4o-mini",
+        model: "o3-mini",
         
       }),
       openai.beta.threads.create()
@@ -389,12 +390,14 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
      chatGroup = new RunModel({
       name: "New Chat",
       user: req.session.userId,
-      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "gpt-4o-mini", memory: true },
+      run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
     });
     await chatGroup.save();
-
+    
 
     }
+   
+      io.emit('chatGroupsUpdate', chatGroups);
 
 
     res.json({ message: "Chat group deleted", chatGroupId: chatGroup._id });
@@ -411,7 +414,10 @@ app.put("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
     }
     chatGroup.name = req.body.name;
     await chatGroup.save();
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+    io.emit('chatGroupsUpdate', chatGroups);
     res.json({ message: "Chat group renamed" });
+    
   } catch (error) {
 
     res.status(500).json({ error: error.message });
@@ -446,7 +452,7 @@ app.get("/api/check-auth", async (req, res) => {
 
 import multer from "multer";
 import fs from "fs";
-//import path from "path";
+import path from "path";
 import { type } from "os";
 import { chat } from "googleapis/build/src/apis/chat/index.js";
 
@@ -839,13 +845,16 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
     res.end();
 
       // Add chat to the chat group's messages
-      await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
+       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
         $set: { 
           "run.tool": responseData.tool,
           "updatedAt": new Date()  // Update the timestamp
         }
       });
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
+      
    
   } catch (error) {
     console.error("Error in /api/chat SSE route:", error);
@@ -1074,6 +1083,8 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
         "updatedAt": new Date() 
         }
       });
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
   }
     
    
@@ -1132,14 +1143,17 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
 
       
       if(myAssistant.model !== responseData.model){ 
+        console.log("Assistant model doesn't match ", responseData.model);
 
         await openai.beta.assistants.update(run.run.AssistantId, {
           model: responseData.model,
           tools : [],
+          reasoning_effort: responseData.model === "o3-mini" ? "medium" : null,
         });
       }
       
       if (responseData.assistant !== '') {
+        console.log("response.assistant isn't null ", responseData.model);
         console.log("Assistant: ", responseData.assistant);
       
         // Define clear roleplay instructions
@@ -1151,28 +1165,24 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         ${responseData.assistant}`;
       
         await openai.beta.assistants.update(run.run.AssistantId, {
-          model: 'gpt-4o',
+          model: "gpt-4o",
           instructions: roleplayInstructions,
+          reasoning_effort: null,
         });
 
       }
       
       else{
-        if(myAssistant.instructions !== null){
+        console.log("response.assistant is null but doesn;t match the instruction in Assistant ", responseData.model);
+        if(myAssistant.instructions !== "" || myAssistant.instructions !== null){
           await openai.beta.assistants.update(run.run.AssistantId, {
 
+            model: responseData.model,
             instructions: '',
           });
 
       } }
-    
-    
-
     // Create a new run with the assistant
-
-    
-    
-    
 
     let aiMessage = "";
     let promptTokens = 0;
@@ -1183,7 +1193,8 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
     const newRun =  await openai.beta.threads.runs.create(run.run.threadId, {
         assistant_id: run.run.AssistantId,
         stream: true,
-        model: responseData.model,
+        model:  responseData.assistant !== '' ? "gpt-4o":responseData.model,
+        reasoning_effort: responseData.assistant !== '' || responseData.model !== "o3-mini" ? null : "medium",
      
       
     });
@@ -1227,13 +1238,6 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
                     console.error("Error processing stream:", error);
                 }
               }
-    
-
-    
-
-    
-   
-    
 
     let chat =  null;
     // Save the chat message in the database
@@ -1285,10 +1289,12 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         "updatedAt": new Date() 
         }
       });
+
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
   }
     
 
-  
 
     // If a file was attached (i.e. vectorStoreId exists) then update the message
     if (run.run.vectorStoreId) {
@@ -1348,8 +1354,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
         return res.status(404).json({ error: "Chat group not found" });
     }
 
-    
-
     let estimatedCompletionTokens = 9999999999;
 
        // Load the correct tokenizer for the model
@@ -1384,7 +1388,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
                 console.error(error);
               }
               
-             
 
             }
             else{
@@ -1413,9 +1416,6 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
               }
 
             }
-
-    
-
     
     // Return token estimates
     return res.json({
@@ -1493,6 +1493,9 @@ app.get("/api/chatGroupName", isAuthenticated, async (req, res) => {
       $set: { "name": aiMessage, "updatedAt": new Date() }
     });
 
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+    io.emit('chatGroupsUpdate', chatGroups);
+
   } catch (error) {
     console.error("Error in /api/chat SSE route:", error);
     res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
@@ -1557,26 +1560,24 @@ app.post("/api/judge", isAuthenticated, async (req, res) => {
     const AIMessage = message.AIMessage;
 
 
-    let completion = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview",
-      web_search_options: {},
-      messages: [{
-          "role": "user",
-          "content": UserMessage
-      }],
-  });
+    const response = await openai.responses.create({
+      model: "gpt-4o",
+      tools: [ { type: "web_search_preview" } ],
+      input: UserMessage,
+    });
+    
+    console.log(response.output_text);
+    
+    const news = response.output_text;
 
-  
-  console.log(completion.choices[0].message.content);
-  const news = completion.choices[0].message.content;
   const evaluationEvent = z.object({
     accuracy: z.number(),
     coherence: z.number(),
     relevance: z.number(),
   });
 
- completion = await openai.beta.chat.completions.parse({
-    model: "gpt-4o",
+ const completion = await openai.beta.chat.completions.parse({
+    model: "o3-mini",
     messages: [
       { role: "system", content: "Extract the event information." },
       { role: "user", content: UserMessage },
@@ -1643,16 +1644,15 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
           }
 
           // Get factual information using web search to help judging
-          let completion = await openai.chat.completions.create({
-            model: "gpt-4o-search-preview",
-            web_search_options: {},
-            messages: [{
-                "role": "user",
-                "content": UserMessage
-            }],
+          const response = await openai.responses.create({
+            model: "gpt-4o",
+            tools: [ { type: "web_search_preview" } ],
+            input: UserMessage,
           });
           
-          const news = completion.choices[0].message.content;
+          console.log(response.output_text);
+          
+          const news = response.output_text;
           
           // Define the schema for the evaluation response
           const evaluationEvent = z.object({
@@ -1662,8 +1662,8 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
           });
           
           // Get the evaluation
-          completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4o",
+          const completion = await openai.beta.chat.completions.parse({
+            model: "o3-mini",
             messages: [
               { role: "system", content: "Extract the event information." },
               { role: "user", content: UserMessage },
@@ -1693,7 +1693,6 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
         }
       }
     }
-    
     return res.json({ 
       success: true, 
       stats: {
@@ -1715,7 +1714,7 @@ app.get("/api/chatgroup/:id/chats", isAuthenticated, async (req, res) => {
   try {
     const chatGroup = await RunModel.findById(req.params.id).populate("run.messages");
     // Update the session's current chat group id
-    res.json(chatGroup.run);
+    res.json(chatGroup);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1739,13 +1738,7 @@ const io = new SocketIOServer(server, {
 io.on('connection', (socket) => {
   console.log('New client with chatGroup connected', socket.id);
    // Store user information when they authenticate
-  socket.on('authenticate', (chatGroupID) => {
-    socket.chatGroupID = chatGroupID;
-    socket.join(`chatGroup:${chatGroupID}`); // Join a room specific to this user
-    console.log(`chatGroup ${chatGroupID} authenticated with socket ${socket.id}`);
-  });
- 
-
+  
   socket.on('characterTokens', async (data) => {
     try{ 
       const { inputValue, model } = data;
@@ -1774,6 +1767,9 @@ io.on('connection', (socket) => {
    
     }
 
+
+
+    
 
 
   }
