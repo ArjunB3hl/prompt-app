@@ -452,7 +452,7 @@ app.get("/api/check-auth", async (req, res) => {
 
 import multer from "multer";
 import fs from "fs";
-import path from "path";
+
 import { type } from "os";
 import { chat } from "googleapis/build/src/apis/chat/index.js";
 
