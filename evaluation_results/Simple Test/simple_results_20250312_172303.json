@@ -1,0 +1,74 @@
+{
+  "gpt-3.5-turbo": {
+    "factual_qa": {
+      "standard_accuracy": 1.0,
+      "few_shot_accuracy": 1.0,
+      "chain_of_thought_accuracy": 1.0,
+      "self_consistency_accuracy": 1.0,
+      "role_accuracy": 1.0,
+      "react_accuracy": 1.0
+    },
+    "reasoning": {
+      "standard_accuracy": 0.8,
+      "few_shot_accuracy": 0.6,
+      "chain_of_thought_accuracy": 0.8,
+      "self_consistency_accuracy": 0.8,
+      "role_accuracy": 0.8,
+      "react_accuracy": 0.8
+    }
+  },
+  "gpt-4o-mini": {
+    "factual_qa": {
+      "standard_accuracy": 1.0,
+      "few_shot_accuracy": 1.0,
+      "chain_of_thought_accuracy": 1.0,
+      "self_consistency_accuracy": 1.0,
+      "role_accuracy": 1.0,
+      "react_accuracy": 1.0
+    },
+    "reasoning": {
+      "standard_accuracy": 0.8,
+      "few_shot_accuracy": 1.0,
+      "chain_of_thought_accuracy": 0.8,
+      "self_consistency_accuracy": 0.8,
+      "role_accuracy": 0.8,
+      "react_accuracy": 0.8
+    }
+  },
+  "o1-mini": {
+    "factual_qa": {
+      "standard_accuracy": 1.0,
+      "few_shot_accuracy": 1.0,
+      "chain_of_thought_accuracy": 1.0,
+      "self_consistency_accuracy": 1.0,
+      "role_accuracy": 1.0,
+      "react_accuracy": 1.0
+    },
+    "reasoning": {
+      "standard_accuracy": 1.0,
+      "few_shot_accuracy": 0.6,
+      "chain_of_thought_accuracy": 0.8,
+      "self_consistency_accuracy": 0.8,
+      "role_accuracy": 0.8,
+      "react_accuracy": 0.6
+    }
+  },
+  "o3-mini": {
+    "factual_qa": {
+      "standard_accuracy": 1.0,
+      "few_shot_accuracy": 1.0,
+      "chain_of_thought_accuracy": 1.0,
+      "self_consistency_accuracy": 1.0,
+      "role_accuracy": 1.0,
+      "react_accuracy": 1.0
+    },
+    "reasoning": {
+      "standard_accuracy": 0.8,
+      "few_shot_accuracy": 0.8,
+      "chain_of_thought_accuracy": 1.0,
+      "self_consistency_accuracy": 1.0,
+      "role_accuracy": 1.0,
+      "react_accuracy": 1.0
+    }
+  }
+}

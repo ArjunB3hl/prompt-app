@@ -1,0 +1,58 @@
+{
+  "gpt-3.5-turbo": {
+    "factual_qa": {
+      "accuracy": 1.0
+    },
+    "reasoning": {
+      "accuracy": 0.8
+    },
+    "summarization": {
+      "content_score": 0.76
+    },
+    "coding": {
+      "functionality_score": 0.8000000000000002
+    }
+  },
+  "gpt-4o-mini": {
+    "factual_qa": {
+      "accuracy": 1.0
+    },
+    "reasoning": {
+      "accuracy": 0.8
+    },
+    "summarization": {
+      "content_score": 0.8
+    },
+    "coding": {
+      "functionality_score": 0.8333333333333334
+    }
+  },
+  "o1-mini": {
+    "factual_qa": {
+      "accuracy": 1.0
+    },
+    "reasoning": {
+      "accuracy": 0.8
+    },
+    "summarization": {
+      "content_score": 0.8
+    },
+    "coding": {
+      "functionality_score": 0.8000000000000002
+    }
+  },
+  "o3-mini": {
+    "factual_qa": {
+      "accuracy": 1.0
+    },
+    "reasoning": {
+      "accuracy": 1.0
+    },
+    "summarization": {
+      "content_score": 0.8
+    },
+    "coding": {
+      "functionality_score": 0.8333333333333334
+    }
+  }
+}

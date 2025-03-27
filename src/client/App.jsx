@@ -14,6 +14,7 @@ import { ChartViewer } from './ChartViewer';
 import { RightDrawer } from './RightDrawer';
 import { BottomBar } from './BottomBar';
 import { LoadingChat } from './LoadingChat';
+import { EvaluationResults } from './EvaluationResults';
 
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -48,6 +49,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home/>} />
+        <Route path="/evaluation-results" element={<EvaluationResults />} />
         <Route 
           path="/c/:currentChatGroupId" 
           element={

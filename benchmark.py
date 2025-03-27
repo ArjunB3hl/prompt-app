@@ -282,7 +282,7 @@ Your answer:"""
                 successful += 1
                 
                 # Log metrics for each item
-                logger.info(f"Item metrics - Exact: {exact_match}, F1: {f1:.4f}, BLEU: {bleu:.4f}, ROUGE-1: {rouge_scores['rouge1'].fmeasure:.4f}")
+                logger.info(f"Item metrics - F1: {f1:.4f}, BLEU: {bleu:.4f}, ROUGE-1: {rouge_scores['rouge1'].fmeasure:.4f}")
                 
             except Exception as e:
                 logger.error(f"Error evaluating QA: {str(e)}", exc_info=True)

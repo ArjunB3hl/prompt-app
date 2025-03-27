@@ -12,8 +12,18 @@ import {
   createTheme,
   ThemeProvider,
   CssBaseline,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import AutoGraphIcon from '@mui/icons-material/AutoGraph';
+import ScoreIcon from '@mui/icons-material/Score';
+import BarChartIcon from '@mui/icons-material/BarChart';
 
 export function Home() {
   const navigate = useNavigate();
@@ -163,6 +173,116 @@ export function Home() {
                     Designed with security and reliability, ensuring your data
                     is always safe.
                   </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Container>
+        </Box>
+
+        {/* AI Evaluation Metrics Section */}
+        <Box sx={{ py: 10, mt: 6, backgroundColor: "#f5f5f5" }}>
+          <Container maxWidth="lg">
+            <Typography
+              variant="h4"
+              align="center"
+              gutterBottom
+              sx={{ fontWeight: "bold" }}
+            >
+              AI Model Evaluation
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              align="center"
+              color="text.secondary"
+              paragraph
+              sx={{ mb: 5 }}
+            >
+              We evaluate AI models through multiple methodologies to provide comprehensive performance insights.
+            </Typography>
+            
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={6}>
+                <Paper elevation={2} sx={{ p: 4, height: '100%' }}>
+                  <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AssessmentIcon sx={{ mr: 1 }} /> Simple Benchmark
+                  </Typography>
+                  <Divider sx={{ my: 2 }} />
+                  <List>
+                    <ListItem>
+                      <ListItemIcon>
+                        <ScoreIcon />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary="Practical Tasks" 
+                        secondary="We evaluate models on real-world tasks they're actually used for, rather than abstract metrics." 
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon>
+                        <BarChartIcon />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary="Multiple Prompting Techniques" 
+                        secondary="Comparing how different prompting strategies affect model performance across various tasks." 
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon>
+                        <AutoGraphIcon />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary="Task Coverage" 
+                        secondary="Evaluating QA, reasoning, summarization, and coding capabilities in one benchmark." 
+                      />
+                    </ListItem>
+                  </List>
+                </Paper>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Paper elevation={2} sx={{ p: 4, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                  <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                    <AnalyticsIcon sx={{ mr: 1 }} /> Comprehensive Evaluation
+                  </Typography>
+                  <Divider sx={{ my: 2 }} />
+                  <List>
+                    <ListItem>
+                      <ListItemText 
+                        primary="Standard Metrics" 
+                        secondary="Using established metrics like ROUGE, BLEU, and F1 scores for quantitative measurement" 
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemText 
+                        primary="Benchmark Datasets" 
+                        secondary="Testing with SQuAD, CNN/DailyMail, and other standardized evaluation datasets" 
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemText 
+                        primary="Advanced Prompting" 
+                        secondary="Exploring chain-of-thought, self-consistency, and role prompting techniques" 
+                      />
+                    </ListItem>
+                  </List>
+                  
+                  <Box sx={{ textAlign: 'center', mt: 3 }}>
+                    <Button 
+                      variant="contained" 
+                      size="large"
+                      color="primary"
+                      onClick={() => handleNavigation("/evaluation-results")}
+                      startIcon={<AssessmentIcon />}
+                      sx={{ 
+                        px: 4, 
+                        py: 1.5,
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem'
+                      }}
+                    >
+                      View Evaluation Results
+                    </Button>
+                  </Box>
                 </Paper>
               </Grid>
             </Grid>

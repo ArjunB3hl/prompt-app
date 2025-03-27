@@ -1,5 +1,7 @@
 import express, { response } from "express";
 import ViteExpress from "vite-express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import mongoose from "mongoose";
 import session from "express-session";
@@ -81,7 +83,20 @@ mongoose
 
 const app = express();
 
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, "../..");
+
 app.use(express.json());
+
+// Serve evaluation results as static files
+app.use('/evaluation_results', express.static(path.join(rootDir, 'evaluation_results')));
+
+// Make sure subdirectories are also properly served
+// Using URL encoding for spaces in directory names
+app.use('/evaluation_results/Simple%20Test', express.static(path.join(rootDir, 'evaluation_results/Simple Test')));
+app.use('/evaluation_results/Simple Test', express.static(path.join(rootDir, 'evaluation_results/Simple Test')));
 
 const sessionConfig = {
   secret: "thisshouldbeabettersecret!",
@@ -182,10 +197,10 @@ app.get('/oauth2callback', async (req, res) => {
     await user.save();
     req.session.userId = user._id;
     if(action === "signup"){
-    res.redirect(`http://localhost:5030/signup`); // or wherever you’d like to redirect
+    res.redirect(`http://localhost:5030/signup`); // or wherever you'd like to redirect
     }
     else if(action === "login"){
-      res.redirect(`http://localhost:5030/login`); // or wherever you’d like to redirect
+      res.redirect(`http://localhost:5030/login`); // or wherever you'd like to redirect
     }
 
   } catch (error) {
@@ -431,7 +446,7 @@ app.get("/api/check-auth", async (req, res) => {
 
 import multer from "multer";
 import fs from "fs";
-import path from "path";
+//import path from "path";
 import { type } from "os";
 import { chat } from "googleapis/build/src/apis/chat/index.js";
 
