@@ -29,6 +29,7 @@ import { Appbar } from './AppBar';
 import { useLocalStorage } from './useLocalStorage';
 import { ChatMessage } from './ChatMessage';
 import { Home } from './Home';
+import { Help } from './Help';
 
 import { useActiveChats } from './useActiveChats';
 
@@ -48,6 +49,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home/>} />
+        <Route path="/Help" element={<Help/>} />
         <Route 
           path="/c/:currentChatGroupId" 
           element={
@@ -144,11 +146,7 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
     // Set up socket event listeners
     socketRef.current.on('connect', () => {
       console.log('Connected to server with socket ID:', socketRef.current.id);
-     
-      // Authenticate socket with user ID if available
-      if (localStorage.getItem('isAuthenticated') === 'true') {
-        socketRef.current.emit('authenticate', localStorage.getItem('currentChatGroupId'));
-      }
+      
     });
    
    
@@ -186,6 +184,43 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
       }
     };
   }, [inputValue, model]);
+
+
+  useEffect(() => {
+    if (socketRef.current) {
+      // Listen for chat group updates
+      socketRef.current.on('chatGroupsUpdate', (updatedGroups) => {
+        console.log('Received chat groups update:');
+        updatedGroups.map((group) => {
+          return {
+            _id: group._id,
+            name: group.name,
+            messages: group.run.messages,
+            model: group.run.model,
+            memory: group.run.memory,
+            assistant: group.run.assistant,
+            tool: group.run.tool,
+            timestamp: group.updatedAt
+          }
+        });
+
+        // Update the chatGroups state with new data
+        setChatGroups((prevGroups) => {
+          // If the arrays are different, update
+          if (JSON.stringify(prevGroups) !== JSON.stringify(updatedGroups)) {
+            return updatedGroups;
+          }
+          return prevGroups;
+        });
+      });
+    }
+  
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('chatGroupsUpdate');
+      }
+    };
+  }, [socketRef.current]); // Only re-run if socket reference changes
 
 
   const handleEditing = useCallback ( (id) => {
@@ -337,11 +372,26 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
       try {
         const response = await axios.get("/api/check-auth");
         console.log("response.data.chatGroupId in myApp", response.data.currentChatGroupId);
-        setChatGroups( response.data.chatGroups );
+        // response.data.chatGroups
+        setChatGroups( response.data.chatGroups.map((chatGroup) =>  {
+         return {
+          _id: chatGroup._id,
+          name: chatGroup.name,
+          messages: chatGroup.run.messages,
+          model: chatGroup.run.model,
+          memory: chatGroup.run.memory,
+          assistant: chatGroup.run.memory,
+          tool: chatGroup.run.tool,
+          timestamp: chatGroup.updatedAt
+        }
+      }
+      ) );
         
         if(username === '') {
           setUsername(response.data.username);
         };
+        
+
 
       } catch (error) {
         console.error('Error loading chatGroups:', error);
@@ -430,14 +480,14 @@ useEffect(() => {
     try {
       const response = await axios.get(`/api/chatgroup/${currentChatGroupId}/chats`);
       
-      if (response.data.messages.length === 0) {
+      if (response.data.run.messages.length === 0) {
         console.log('No chats found');
         setChat(false);
       } else {
         setChat(true);
       }
       
-      const formattedMessages = response.data.messages.map((chat) => ([
+      const formattedMessages = response.data.run.messages.map((chat) => ([
         chat.fileName 
           ? { text: chat.UserMessage, sender: 'user', file: chat.fileName, id: chat._id, edit: false } 
           : { text: chat.UserMessage, sender: 'user', id: chat._id, edit: false, toolUse: chat.toolUse, load: false },
@@ -446,14 +496,14 @@ useEffect(() => {
       
       setMessages(formattedMessages);
       
-      setModel(response.data.model);
-      setMemory(response.data.memory);
+      setModel(response.data.run.model);
+      setMemory(response.data.run.memory);
 
-      if (response.data.assistant !== "" && response.data.assistant !== undefined) {
-        setAssistantText(response.data.assistant);
+      if (response.data.run.assistant !== "" && response.data.run.assistant !== undefined) {
+        setAssistantText(response.data.run.assistant);
         setSelectedOption("Role prompting");
-      } else if (response.data.tool !== "" && response.data.tool !== undefined) {
-        setToolType(response.data.tool);
+      } else if (response.data.run.tool !== "" && response.data.run.tool !== undefined) {
+        setToolType(response.data.run.tool);
         setSelectedOption("React prompting");
       } else {
         setAssistantText("");
@@ -464,12 +514,12 @@ useEffect(() => {
       // Update cache with the fetched data
       const chatGroupData = {
         _id: currentChatGroupId,
-        messages: response.data.messages,
-        model: response.data.model,
-        memory: response.data.memory,
-        assistant: response.data.assistant,
-        tool: response.data.tool,
-        timestamp: new Date().toISOString()
+        messages: response.data.run.messages,
+        model: response.data.run.model,
+        memory: response.data.run.memory,
+        assistant: response.data.run.assistant,
+        tool: response.data.run.tool,
+        timestamp: response.data.updatedAt
       };
 
       addActiveChat(chatGroupData);
@@ -510,7 +560,7 @@ useEffect(() => {
             { text: chat.AIMessage, sender: 'ai', id: chat._id, complete: true },
           ])).flat());
           
-          setModel(cachedGroup.model || 'gpt-4o-mini');
+          setModel(cachedGroup.model || 'o3-mini');
           setMemory(cachedGroup.memory !== undefined ? cachedGroup.memory : true);
     
           if (cachedGroup.assistant !== "" && cachedGroup.assistant !== undefined) {
@@ -845,7 +895,6 @@ const handleSendClick = () => {
 
   const leftDrawer = useMemo(() => 
     <LeftDrawer 
-      setChatGroups={setChatGroups} 
       chatGroups={chatGroups} 
       currentChatGroupId={currentChatGroupId} 
       themeMode={themeMode} 
@@ -910,7 +959,7 @@ const handleSendClick = () => {
     >
       {messages.map((message, index) => (
   <React.Fragment key={index}>
-    <ChatMessage message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} tokens = {tokens} />
+    <ChatMessage message={message} handleSave={handleSave} handleCancel={handleCancel} handleEditing={handleEditing} tokens = {tokens} assistantText={assistantText} toolType ={toolType}/>
     {message.load ? (
       <Box 
         sx={{
@@ -969,6 +1018,15 @@ const handleSendClick = () => {
                 '&:hover': {
                   backgroundColor: themeMode === 'dark' ? '#000' : '#fff',
                 },
+              },
+            },
+          },
+          MuiTypography: {
+            styleOverrides: {
+              root: {
+                // For example, set typography color based on themeMode
+                color: themeMode === 'dark' ? '#fff' : '#000',
+                // Add any other typography overrides you need
               },
             },
           },

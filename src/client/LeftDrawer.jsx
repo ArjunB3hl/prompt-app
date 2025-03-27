@@ -22,7 +22,7 @@ import { useActiveChats } from './useActiveChats';
 
 
 export const LeftDrawer = 
-React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth, username, model, setIsLoading}) => {
+React.memo(({chatGroups, currentChatGroupId, themeMode, leftWidth, username, model, setIsLoading}) => {
 
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
@@ -31,17 +31,7 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
     const [editChatGroupId, setEditChatGroupId] = useState(null);
     const { activeChats, addActiveChat, updateActiveChat, removeActiveChat } = useActiveChats();
    
-    // Find current chat group and add it to active chats
-    useEffect(() => {
-      if (currentChatGroupId && chatGroups.length > 0) {
-        const currentGroup = chatGroups.find(group => group._id === currentChatGroupId);
-        if (currentGroup) {
-          addActiveChat(currentGroup).catch(err => {
-            console.error('Error adding chat to active chats:', err);
-          });
-        }
-      }
-    }, [currentChatGroupId, chatGroups, addActiveChat]);
+    
     const handleClick = (event, chatGroup) => {
       setAnchorEl(event.currentTarget);
       setSelectedGroup(chatGroup);
@@ -56,11 +46,7 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
             data: { currentChatGroupId }
           });
          
-          // Update chat groups state
-          setChatGroups(prevChatGroups => {
-            const updatedChatGroups = prevChatGroups.filter(group => group._id !== chatGroupId);
-            return updatedChatGroups;
-          });
+          
           
           // If we're deleting the current chat, navigate to another one
           if (currentChatGroupId === chatGroupId) {
@@ -74,21 +60,8 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
       const handleRenaming = async (chatGroupId) => {
         try {
           await axios.put(`/api/chatgroup/${chatGroupId}`, { name });
-          setChatGroups(prevChatGroups => {
-            const updatedChatGroups = prevChatGroups.map(group => {
-              if (group._id === chatGroupId) {
-                const updatedGroup = { ...group, name };
-                // Use the updateActiveChat function instead
-                updateActiveChat(updatedGroup).catch(err => {
-                  console.error('Error updating active chat:', err);
-                });
-                return updatedGroup;
-              }
-              return group;
-            });
+          
 
-            return updatedChatGroups;
-          });
           
           setEditChatGroupId(null);
           setName('');
@@ -107,18 +80,22 @@ React.memo(({setChatGroups, chatGroups, currentChatGroupId, themeMode, leftWidth
           
           const response = await axios.post('/api/chatgroup', { username, model });
           const newChatGroup = {
-            name: response.data.name,
             _id: response.data.chatGroupId,
-            chats: []
+            name: response.data.name,
+            messages: [],
+            model: "o3-mini",
+            memory: true,
+            timestamp: response.data.timestamp, 
           };
           
-          setChatGroups(prevChatGroups => {
-            const updatedChatGroups = [newChatGroup, ...prevChatGroups];
-            return updatedChatGroups;
-          });
-          
           // Add to active chats
-          addActiveChat(newChatGroup);
+          addActiveChat({
+            _id: response.data.chatGroupId,
+            messages: [],
+            model: "o3-mini",
+            memory: true,
+            timestamp: response.data.timestamp, 
+          });
           
           // Use React Router navigation instead of window.location
           navigate(`/c/${response.data.chatGroupId}`);

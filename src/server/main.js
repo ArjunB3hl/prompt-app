@@ -329,9 +329,12 @@ app.post("/api/chatgroup", isAuthenticated, async (req, res) => {
       run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model : "o3-mini", memory: true },
     });
     await chatGroup.save();
+
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
    
 
-    res.json({ name: chatGroup.name,chatGroupId: chatGroup._id });
+    res.json({ name: chatGroup.name,chatGroupId: chatGroup._id, timestamp: chatGroup.updatedAt });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -375,9 +378,11 @@ app.delete("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
       run: { threadId: emptyThread.id, AssistantId: myAssistant.id, messages: [], model: "o3-mini", memory: true },
     });
     await chatGroup.save();
-
+    
 
     }
+   
+      io.emit('chatGroupsUpdate', chatGroups);
 
 
     res.json({ message: "Chat group deleted", chatGroupId: chatGroup._id });
@@ -394,7 +399,10 @@ app.put("/api/chatgroup/:chatGroupId", isAuthenticated, async (req, res) => {
     }
     chatGroup.name = req.body.name;
     await chatGroup.save();
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+    io.emit('chatGroupsUpdate', chatGroups);
     res.json({ message: "Chat group renamed" });
+    
   } catch (error) {
 
     res.status(500).json({ error: error.message });
@@ -429,9 +437,6 @@ app.get("/api/check-auth", async (req, res) => {
 
 import multer from "multer";
 import fs from "fs";
-import path from "path";
-import { type } from "os";
-import { chat } from "googleapis/build/src/apis/chat/index.js";
 
 // Configure Multer for file uploads
 const storage = multer.diskStorage({
@@ -822,13 +827,16 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
     res.end();
 
       // Add chat to the chat group's messages
-      await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
+       await RunModel.findByIdAndUpdate(responseData.currentChatGroupId, {
         $push: { "run.messages": chat._id},
         $set: { 
           "run.tool": responseData.tool,
           "updatedAt": new Date()  // Update the timestamp
         }
       });
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
+      
    
   } catch (error) {
     console.error("Error in /api/chat SSE route:", error);
@@ -1057,6 +1065,8 @@ app.get("/api/chatCompletion", isAuthenticated, async (req, res) => {
         "updatedAt": new Date() 
         }
       });
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
   }
     
    
@@ -1139,6 +1149,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         await openai.beta.assistants.update(run.run.AssistantId, {
           model: "gpt-4o",
           instructions: roleplayInstructions,
+          reasoning_effort: null,
         });
 
       }
@@ -1164,8 +1175,8 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
     const newRun =  await openai.beta.threads.runs.create(run.run.threadId, {
         assistant_id: run.run.AssistantId,
         stream: true,
-        model: responseData.model,
-        reasoning_effort: responseData.model === "o3-mini"  ? "medium" : null,
+        model:  responseData.assistant !== '' ? "gpt-4o":responseData.model,
+        reasoning_effort: responseData.assistant !== '' || responseData.model !== "o3-mini" ? null : "medium",
      
       
     });
@@ -1260,6 +1271,9 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
         "updatedAt": new Date() 
         }
       });
+
+      const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+      io.emit('chatGroupsUpdate', chatGroups);
   }
     
 
@@ -1461,6 +1475,9 @@ app.get("/api/chatGroupName", isAuthenticated, async (req, res) => {
       $set: { "name": aiMessage, "updatedAt": new Date() }
     });
 
+    const chatGroups = await RunModel.find({ user: req.session.userId }).sort({ updatedAt: -1 });
+    io.emit('chatGroupsUpdate', chatGroups);
+
   } catch (error) {
     console.error("Error in /api/chat SSE route:", error);
     res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
@@ -1542,7 +1559,7 @@ app.post("/api/judge", isAuthenticated, async (req, res) => {
   });
 
  const completion = await openai.beta.chat.completions.parse({
-    model: "o1",
+    model: "o3-mini",
     messages: [
       { role: "system", content: "Extract the event information." },
       { role: "user", content: UserMessage },
@@ -1628,7 +1645,7 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
           
           // Get the evaluation
           const completion = await openai.beta.chat.completions.parse({
-            model: "o1",
+            model: "o3-mini",
             messages: [
               { role: "system", content: "Extract the event information." },
               { role: "user", content: UserMessage },
@@ -1679,7 +1696,7 @@ app.get("/api/chatgroup/:id/chats", isAuthenticated, async (req, res) => {
   try {
     const chatGroup = await RunModel.findById(req.params.id).populate("run.messages");
     // Update the session's current chat group id
-    res.json(chatGroup.run);
+    res.json(chatGroup);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1703,13 +1720,7 @@ const io = new SocketIOServer(server, {
 io.on('connection', (socket) => {
   console.log('New client with chatGroup connected', socket.id);
    // Store user information when they authenticate
-  socket.on('authenticate', (chatGroupID) => {
-    socket.chatGroupID = chatGroupID;
-    socket.join(`chatGroup:${chatGroupID}`); // Join a room specific to this user
-    console.log(`chatGroup ${chatGroupID} authenticated with socket ${socket.id}`);
-  });
- 
-
+  
   socket.on('characterTokens', async (data) => {
     try{ 
       const { inputValue, model } = data;
@@ -1737,6 +1748,10 @@ io.on('connection', (socket) => {
       console.error("Error fetching character tokens:", error);
    
     }
+
+
+
+    
 
 
   }

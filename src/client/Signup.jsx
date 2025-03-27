@@ -3,6 +3,7 @@ import Link from '@mui/material/Link';
 import Container from '@mui/material/Container';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
+import { createTheme, ThemeProvider, CssBaseline } from '@mui/material'; // Added imports
 import axios from "axios";
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -85,10 +86,35 @@ export function Signup({ setIsAuthenticated, setUsername, setImageData }) {
     // Optionally handle form errors here
   };
 
+  // Theme definition from Home.jsx
+  const theme = createTheme({
+    palette: {
+      mode: "light",
+      primary: {
+        main: "#000", // Minimalistic black accent
+      },
+      background: {
+        default: "#ececec", // Softer gray for overall background
+        paper: "#f9f9f9", // Slightly lighter for paper sections
+      },
+      text: {
+        primary: "#000",
+        secondary: "#555",
+      },
+    },
+    typography: {
+      fontFamily: '"San Francisco", "Helvetica Neue", Arial, sans-serif',
+    },
+  });
+
   return (
-    <Container maxWidth="sm" sx={{ mt: 8 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" align="center" gutterBottom>
+    <ThemeProvider theme={theme}> {/* Added ThemeProvider */}
+      <CssBaseline /> {/* Added CssBaseline */}
+      {/* Apply background color to the body or a full-height container */}
+      <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Container maxWidth="sm" sx={{ mt: { xs: 4, sm: 8 }, mb: { xs: 4, sm: 8 } }}> {/* Adjusted margins */}
+          <Paper elevation={3} sx={{ p: 4, bgcolor: 'background.paper' }}> {/* Use theme paper color */}
+            <Typography variant="h4" align="center" gutterBottom>
           Sign Up
         </Typography>
         <Box
@@ -140,19 +166,42 @@ export function Signup({ setIsAuthenticated, setUsername, setImageData }) {
             Register
           </Button>
         </Box>
+        
+        <Box sx={{ mt: 2 }} />
+       
+        <Button 
+          variant="outlined" 
+          fullWidth
+          href="/auth/google?action=signup"
+
+          startIcon={
+            <Box component="img" 
+              src="https://developers.google.com/identity/images/g-logo.png" 
+              alt="Google logo"
+              sx={{ width: 18, height: 18 }}
+            />
+          }
+          sx={{ 
+            textTransform: 'none',
+            borderColor: '#DADCE0',
+            color: 'text.primary',
+            '&:hover': {
+              borderColor: '#DADCE0',
+              backgroundColor: 'rgba(0, 0, 0, 0.04)'
+            }
+          }}
+        >
+          Continue with Google
+        </Button>
         <Typography sx={{ mt: 2, textAlign: "center", width: "100%" }}>
           Already have an account?{" "}
           <Link href="/login" underline="hover">
             Login
           </Link>
         </Typography>
-         <Typography sx={{ mt: 2, textAlign: "center", width: "100%" }}>
-          Or sign up with{" "}
-          <Link href="/auth/google?action=signup" underline="hover">
-            Google
-          </Link>
-        </Typography>
-      </Paper>
-    </Container>
+          </Paper>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 }
