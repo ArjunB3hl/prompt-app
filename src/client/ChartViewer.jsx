@@ -1,5 +1,5 @@
-import { Box, Typography, Paper } from "@mui/material";
-import { useEffect, useState, useRef } from "react";
+import { Box,  Paper } from "@mui/material";
+import { useEffect, useState } from "react";
 import React from "react";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -19,6 +19,7 @@ import {
 } from 'chart.js';
 import { Line, Pie, Bar } from 'react-chartjs-2';
 import './chartViewer.css'; // We'll create this CSS file next
+import { set } from "mongoose";
 
 // Register the chart components we need
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
@@ -51,12 +52,12 @@ export function ChartViewer() {
       if (!selectedChatGroup) return;
       try {
         const response = await axios.get(`/api/chatgroup/${selectedChatGroup._id}/chats`);
-        if(response.data.messages.length === 0) {
+        if(response.data.run.messages.length === 0) {
             console.log('No chats found');
         }
         else {
-          setChats(response.data.messages);
-          console.log('Chats loaded:', response.data.messages);
+          setChats(response.data.run.messages);
+          console.log('Chats loaded:', response.data.run.messages);
         }
       } catch (error) {
         console.error('Error loading chats:', error);
@@ -669,16 +670,6 @@ export function ChartViewer() {
       '#56B4E9'  // Sky blue
     ];
 
-    // Create datasets for line chart
-    const lineDatasets = Object.keys(modelGroups).map((model, index) => {
-      return {
-        label: model,
-        data: modelGroups[model],
-        backgroundColor: colors[index % colors.length],
-        borderColor: colors[index % colors.length],
-        borderWidth: 3, // Bolder line
-      };
-    });
 
     // Create data for pie chart
     const pieData = {
@@ -732,6 +723,8 @@ export function ChartViewer() {
   
   // Handler for chat group change
   const handleChatGroupChange = (e) => {
+    setSelectedRows([]);
+    setSelectedChartOption("");
     const matchingGroup = chatGroups.find(group => group.name === e.target.value);
     if (matchingGroup) {
       setSelectedChatGroup(matchingGroup);

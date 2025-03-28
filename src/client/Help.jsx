@@ -7,7 +7,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Divider,
   List,
   ListItem,
   ListItemIcon,
@@ -98,10 +97,10 @@ export function Help() {
         <Container maxWidth="lg">
           <Paper elevation={3} sx={{ p: 4, mb: 4, bgcolor: "background.paper" }}>
             <Typography variant="h3" component="h1" gutterBottom align="center" sx={{ fontWeight: "bold" }}>
-              Prompt App Help Center
+              LLM Analyzer Help Center
             </Typography>
             <Typography variant="h6" color="text.secondary" paragraph align="center">
-              Your comprehensive guide to using all features of the Prompt App
+              Your comprehensive guide to using all features of the LLM Analyzer
             </Typography>
           </Paper>
 
@@ -112,7 +111,7 @@ export function Help() {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Prompt App is an AI-powered chat application designed for advanced prompt engineering. 
+                LLM Analyzer is an AI-powered chat application designed for advanced prompt engineering. 
                 It allows you to interact with various AI models, track performance metrics, and optimize your prompts.
               </Typography>
               <Typography variant="h6" gutterBottom sx={{ mt: 2, fontWeight: "bold" }}>
@@ -150,7 +149,7 @@ export function Help() {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Prompt App supports multiple AI models with different capabilities and pricing. 
+                LLM Analyzer supports multiple AI models with different capabilities and pricing. 
                 You can select the most appropriate model for your specific needs.
               </Typography>
               <Grid container spacing={3} sx={{ mt: 1 }}>
@@ -239,7 +238,7 @@ export function Help() {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Prompt App supports multiple advanced prompting techniques to help you get the most out of AI models.
+                LLM Analyzer supports multiple advanced prompting techniques to help you get the most out of AI models.
               </Typography>
               
               <Typography variant="h6" gutterBottom sx={{ mt: 2, fontWeight: "bold" }}>

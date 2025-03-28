@@ -1395,7 +1395,7 @@ app.post("/api/tokens", isAuthenticated, async (req, res) => {
                 
                 const requestBody = {
                   prompt: text,
-                  model: model
+                  model: "claude"
                 };
             
                 const response = await axios.post(
@@ -1582,7 +1582,7 @@ app.post("/api/judge", isAuthenticated, async (req, res) => {
       { role: "system", content: "Extract the event information." },
       { role: "user", content: UserMessage },
       { role: "system", content: AIMessage },
-      { role: "user", content: ` Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10, where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
+      { role: "user", content: ` Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10 (Be strict), where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
     ],
     response_format: zodResponseFormat(evaluationEvent, "event"),
   });
@@ -1668,7 +1668,7 @@ app.post("/api/judgeMass", isAuthenticated, async (req, res) => {
               { role: "system", content: "Extract the event information." },
               { role: "user", content: UserMessage },
               { role: "system", content: AIMessage },
-              { role: "user", content: `Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10, where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
+              { role: "user", content: `Using the two messages above, check if the AI response is accurate, coherent and relevant. Rate each on a scale of 1-10(Be very strict), where 1 is the lowest and 10 is the highest. if necessary use the following ${news} to evaluate` },
             ],
             response_format: zodResponseFormat(evaluationEvent, "event"),
           });

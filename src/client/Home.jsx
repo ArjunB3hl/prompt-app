@@ -66,7 +66,7 @@ export function Home() {
               component="div"
               sx={{ flexGrow: 1, fontWeight: "bold" }}
             >
-              Prompt App
+              LLM Analyzer
             </Typography>
             <Button
               color="primary"
@@ -103,7 +103,7 @@ export function Home() {
                 gutterBottom
                 sx={{ fontWeight: "bold" }}
               >
-                Welcome to Prompt App
+                Welcome to LLM Analyzer
               </Typography>
               <Typography variant="h6" color="text.secondary" paragraph>
                 An AI-powered chat application for advanced prompt engineering.
@@ -140,7 +140,7 @@ export function Home() {
               gutterBottom
               sx={{ fontWeight: "bold" }}
             >
-              Why Choose Prompt App?
+              Why Choose LLM Analyzer?
             </Typography>
             <Grid container spacing={4} sx={{ mt: 4 }}>
               <Grid item xs={12} md={4}>
@@ -315,7 +315,7 @@ export function Home() {
                     A
                   </Avatar>
                   <Typography variant="body1" paragraph>
-                    "Prompt App has completely transformed the way I interact
+                    "LLM Analyzer has completely transformed the way I interact
                     with AI. Its design is phenomenal!"
                   </Typography>
                   <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
@@ -382,7 +382,7 @@ export function Home() {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} Prompt App. All rights reserved.
+            © {new Date().getFullYear()} LLM Analyzer. All rights reserved.
           </Typography>
         </Box>
       </Box>

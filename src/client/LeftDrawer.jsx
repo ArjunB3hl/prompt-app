@@ -11,7 +11,7 @@ import Divider from '@mui/material/Divider';
 import axios from 'axios';
 import IconButton from '@mui/material/IconButton';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Typography } from '@mui/material';
+import { Menu } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -145,17 +145,17 @@ React.memo(({chatGroups, currentChatGroupId, themeMode, leftWidth, username, mod
               borderRadius: '50px',
               textTransform: 'none',
               fontSize: '16px',
-              mt: 2,
+              mt: 1,
               ml: 2,
               width: '80%',
             }}
           >
             New Chat
           </Button>
-          <Divider sx={{ mt: 2 }} />
+          <Divider sx={{ mt: 1.5 }} />
           
           {/* Chats List */}
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1 }}>
             
             <List sx={{ width: '100%', mt: 1 }}>
             {chatGroups.map((group, index) => 

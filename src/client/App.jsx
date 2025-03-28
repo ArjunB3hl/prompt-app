@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import { io } from 'socket.io-client';
-import TextField from '@mui/material/TextField';
 import axios from 'axios';
-import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 
 import { Login } from './Login';
@@ -17,9 +14,6 @@ import { LoadingChat } from './LoadingChat';
 import { EvaluationResults } from './EvaluationResults';
 
 import CircularProgress from '@mui/material/CircularProgress';
-import LinearProgress from '@mui/material/LinearProgress';
-import EditIcon from '@mui/icons-material/Edit';
-import ReactMarkdown from 'react-markdown';
 
 import { CardCont } from './CardCont';
 
@@ -34,11 +28,6 @@ import { Help } from './Help';
 
 import { useActiveChats } from './useActiveChats';
 
-const theme = createTheme({
-  colorSchemes: {
-    dark: true,
-  },
-});
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('isAuthenticated', false);
@@ -107,7 +96,7 @@ function App() {
 }
 
 function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGroups, setChatGroups, setImageData }) {
-  const navigate = useNavigate();
+  
   const { currentChatGroupId } = useParams();
   
   // UI state
@@ -132,7 +121,6 @@ function MainApp({ setUsername, username, setIsAuthenticated, imageData, chatGro
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
 
-  
   
   useEffect(() => {
     // Initialize socket connection
@@ -1098,7 +1086,7 @@ const handleSendClick = () => {
         memory={memory}
       />
 
-{state.left && ( <Box
+{state.left  && ( <Box
           sx={{
             position: 'fixed',
             top: 0,

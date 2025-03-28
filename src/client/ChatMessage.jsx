@@ -5,6 +5,8 @@ import DoneIcon from '@mui/icons-material/Done';
 import EditIcon from '@mui/icons-material/Edit';
 import GavelIcon from '@mui/icons-material/Gavel';
 import ReactMarkdown from 'react-markdown';
+import CircularProgress from '@mui/material/CircularProgress';
+import ErrorIcon from '@mui/icons-material/Error';
 import axios from 'axios';
 
 export const ChatMessage = React.memo(
@@ -13,6 +15,8 @@ export const ChatMessage = React.memo(
     {
         const [LocalMessage, setLocalMessage] = useState(message.text);
         const [copied, setCopied] = useState(false);
+        const [isJudging, setIsJudging] = useState(false);
+        const [error, setError] = useState(false);
         
         const handleCopy = () => {
           navigator.clipboard.writeText(message.text)
@@ -23,6 +27,7 @@ export const ChatMessage = React.memo(
             .catch(err => console.error('Failed to copy text: ', err));
         };
         const handleLLMAsJudge = () => {
+          setIsJudging(true);
             console.log('Judge clicked');
             // Call the API to judge the message
             axios.post('/api/judge', { id: message.id })
@@ -31,7 +36,14 @@ export const ChatMessage = React.memo(
           })
             .catch(error => {
               console.error('Error judging message:', error);
+              setError(true);
+            // Clear the error after 2 seconds
+            setTimeout(() => {
+              setError(false);
+            }, 2000);
+
              });
+             setIsJudging(false);
 
             };
 
@@ -120,7 +132,7 @@ export const ChatMessage = React.memo(
                 >
                   <Typography>
                     {message.complete === false && message.text.length > 0 && (assistantText === '' || assistantText === undefined)  && (toolType === '' || toolType === undefined) && (
-                      <Typography variant="caption" sx={{ color: 'grey' }}>
+                      <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.8rem' }}>
                         Predicting {tokens} Tokens
                       </Typography>
                     )}
@@ -176,7 +188,7 @@ export const ChatMessage = React.memo(
                         },
                       }}
                     >
-                        <GavelIcon fontSize="small" />
+                        {isJudging ? <CircularProgress fontSize="small" color="inherit" /> : error ? <ErrorIcon/> : <GavelIcon fontSize="small" />}
                     </Box>
 
                     </>

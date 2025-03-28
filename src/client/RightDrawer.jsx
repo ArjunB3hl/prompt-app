@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import FormControl from '@mui/material/FormControl';
-import FormLabel from '@mui/material/FormLabel';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
@@ -10,9 +9,8 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import InputLabel from '@mui/material/InputLabel';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import { use } from 'react';
 import { useEffect } from 'react';
+import Typography from '@mui/material/Typography';
 
 export const RightDrawer = 
  React.memo( ( {selectedOption, setSelectedOption, assistantText, setAssistantText, toolType, setToolType, themeMode, memory, imageData})  =>{

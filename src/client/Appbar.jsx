@@ -105,7 +105,7 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
         
        
 
-          <Box sx={{ maxWidth: 150, m: 0 }}>
+          <Box sx={{ maxWidth: 200, m: 0 }}>
       <FormControl fullWidth>
         <InputLabel
           id="demo-simple-select-label"
@@ -191,7 +191,7 @@ export function Appbar({getMainWidth, leftWidth, state, toggleDrawer, themeMode,
             onClick={handleJudgeAll}
             disabled={isJudging}
             size="small"
-            sx={{ ml: 1 }}
+           
           >
             {isJudging ? <CircularProgress size={20} color="inherit" /> : <GavelIcon />}
           </IconButton>
