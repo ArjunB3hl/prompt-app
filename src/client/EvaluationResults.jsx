@@ -99,6 +99,55 @@ export function EvaluationResults() {
           description: "Bar chart visualization of Question Answering performance metrics",
           image: "/evaluation_results/qa_comparison_bars_20250314_154031.png",
           date: "March 14, 2025"
+        },
+        // Anthropic Vs OpenAI models results
+        {
+          id: 9,
+          category: "claudevsgpt",
+          title: "Accuracy Comparison by Task",
+          description: "Comparison of accuracy between OpenAI and Anthropic models across different task types",
+          image: "/evaluation_results/ClaudeVGpt/accuracy_comparison_20250328_150449.png",
+          date: "March 28, 2025"
+        },
+        {
+          id: 10,
+          category: "claudevsgpt",
+          title: "Response Time Comparison",
+          description: "Average response time comparison between OpenAI and Anthropic models by task type",
+          image: "/evaluation_results/ClaudeVGpt/time_comparison_20250328_150449.png",
+          date: "March 28, 2025"
+        },
+        {
+          id: 11,
+          category: "claudevsgpt",
+          title: "BLEU Score Performance",
+          description: "BLEU score comparison across different models and prompting techniques",
+          image: "/evaluation_results/ClaudeVGpt/bleu_score_comparison_20250328_151248.png",
+          date: "March 28, 2025"
+        },
+        {
+          id: 12,
+          category: "claudevsgpt",
+          title: "ROUGE-1 Performance",
+          description: "ROUGE-1 metric comparison between Claude and GPT models",
+          image: "/evaluation_results/ClaudeVGpt/rouge1_comparison_20250328_151248.png",
+          date: "March 28, 2025"
+        },
+        {
+          id: 13,
+          category: "claudevsgpt",
+          title: "ROUGE-2 Performance",
+          description: "ROUGE-2 metric evaluation across different models and techniques",
+          image: "/evaluation_results/ClaudeVGpt/rouge2_comparison_20250328_151248.png",
+          date: "March 28, 2025"
+        },
+        {
+          id: 14,
+          category: "claudevsgpt",
+          title: "ROUGE-L Performance",
+          description: "ROUGE-L metric comparison showing longest common subsequence matches",
+          image: "/evaluation_results/ClaudeVGpt/rougeL_comparison_20250328_151248.png",
+          date: "March 28, 2025"
         }
       ];
       
@@ -117,8 +166,9 @@ export function EvaluationResults() {
     if (activeTab === 0) return results;
     if (activeTab === 1) return results.filter(r => r.category === "simple");
     if (activeTab === 2) return results.filter(r => r.category === "comprehensive");
-    if (activeTab === 3) return results.filter(r => r.title.includes("Overall") || r.title.includes("Comprehensive"));
-    if (activeTab === 4) return results.filter(r => r.title.includes("Detailed") || r.title.includes("QA"));
+    if (activeTab === 3) return results.filter(r => r.category === "claudevsgpt");
+    if (activeTab === 4) return results.filter(r => r.title.includes("Overall") || r.title.includes("Comprehensive"));
+    if (activeTab === 5) return results.filter(r => r.title.includes("Detailed") || r.title.includes("QA"));
     return results;
   };
 
@@ -167,6 +217,7 @@ export function EvaluationResults() {
             <Tab label="All Results" />
             <Tab label="Simple Benchmark" />
             <Tab label="Comprehensive Evaluation" />
+            <Tab label="Anthropic Vs OpenAI models" />
             <Tab label="Overall Comparisons" />
             <Tab label="Detailed Breakdowns" />
           </Tabs>
@@ -231,7 +282,7 @@ export function EvaluationResults() {
           </Typography>
           <Divider sx={{ mb: 3 }} />
           <Grid container spacing={4}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <Typography variant="h6" gutterBottom>
                 Simple Benchmark
               </Typography>
@@ -248,7 +299,7 @@ export function EvaluationResults() {
                 yield the best results for different models and use cases.
               </Typography>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <Typography variant="h6" gutterBottom>
                 Comprehensive Evaluation
               </Typography>
@@ -263,6 +314,23 @@ export function EvaluationResults() {
               <Typography variant="body2" paragraph>
                 <strong>Advanced Techniques:</strong> Incorporating techniques like chain-of-thought prompting, 
                 self-consistency, and role prompting to explore advanced capabilities.
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="h6" gutterBottom>
+                Anthropic Vs OpenAI models
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Head-to-Head Comparison:</strong> Direct comparison between Anthropic's Claude models and OpenAI's GPT models
+                across identical tasks and evaluation criteria.
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Specialized Capabilities:</strong> Analysis of each model family's strengths and weaknesses in areas like
+                reasoning, factual accuracy, instruction following, and creative tasks.
+              </Typography>
+              <Typography variant="body2" paragraph>
+                <strong>Performance Metrics:</strong> Detailed evaluation of response quality, generation speed, and overall
+                effectiveness for different use cases and application scenarios.
               </Typography>
             </Grid>
           </Grid>
