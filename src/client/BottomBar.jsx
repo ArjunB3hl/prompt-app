@@ -72,7 +72,7 @@ export function BottomBar({ selectedFile, setSelectedFile, currentChatGroupId, i
 
 
     useEffect(() => {
-      if ((model !== "gpt-4o-mini" || model !== "gpt-3.5-turbo") && selectedFile !== null) {
+      if ((!memory) && selectedFile !== null) {
         handleFileDelete();
       }
       
@@ -159,9 +159,9 @@ export function BottomBar({ selectedFile, setSelectedFile, currentChatGroupId, i
   {/* Step 3: wrap icon & TextField in nested row */}
   <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
     <AttachFileIcon
-      sx={{ mr: 1, cursor: (model === "gpt-4o-mini" || model === "gpt-3.5-turbo") ? "pointer" : "not-allowed" }}
-      onClick={(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") ? handleFileAttachClick : undefined}
-      opacity={(model === "gpt-4o-mini" || model === "gpt-3.5-turbo") ? 1 : 0.3}
+      sx={{ mr: 1, cursor: (memory) ? "pointer" : "not-allowed" }}
+      onClick={(memory) ? handleFileAttachClick : undefined}
+      opacity={(memory) ? 1 : 0.3}
     />
     <input
       ref={fileInputRef}

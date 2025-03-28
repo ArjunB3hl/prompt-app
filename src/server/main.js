@@ -490,7 +490,7 @@ app.post("/api/upload/:chatGroupId", upload.single("file"), async (req, res) => 
         .file.path),
         purpose: "assistants",
       }),
-      openai.beta.vectorStores.create({
+      openai.vectorStores.create({
         name: `User-${req.session.userId}-${Date.now()}`,           
       }),
     ]);
@@ -524,7 +524,7 @@ app.post("/api/upload/:chatGroupId", upload.single("file"), async (req, res) => 
     });
 
     // Poll until the file is indexed into the vector store
-    await openai.beta.vectorStores.files.createAndPoll(
+    await openai.vectorStores.files.createAndPoll(
       updatedChatGroup.run.vectorStoreId,
       { file_id: openaiFile.id }
     );
@@ -568,7 +568,7 @@ app.delete("/api/delete-file/:chatGroupId/:filename", async (req, res) => {
 
     // If there is an attached vector store, delete the file from it
     if (chatGroup.run.vectorStoreId && chatGroup.run.fileId) {
-      await openai.beta.vectorStores.files.del(
+      await openai.vectorStores.files.del(
         chatGroup.run.vectorStoreId,
         chatGroup.run.fileId
       );
@@ -640,6 +640,7 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
                   if(responseData.tool === "mail"){
                     await openai.beta.assistants.update(run.run.AssistantId, {
                       model: "gpt-4o",
+                      reasoning_effort: null,
             instructions:
               "You are a weather bot. Use the provided functions to answer questions.",
             tools: [
@@ -683,6 +684,7 @@ app.get("/api/chatTool", isAuthenticated, async (req, res) => {
                   
                     await openai.beta.assistants.update(run.run.AssistantId, {
                       model: "gpt-4o",
+                      reasoning_effort: null,
                       instructions: "Append, Create or Read  the document as specified by the user",
                       tools: [
                         {
@@ -1147,7 +1149,6 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
 
         await openai.beta.assistants.update(run.run.AssistantId, {
           model: responseData.model,
-          tools : [],
           reasoning_effort: responseData.model === "o3-mini" ? "medium" : null,
         });
       }
@@ -1319,7 +1320,7 @@ app.get("/api/chat", isAuthenticated, async (req, res) => {
 
       // If the updated group still has vector store info (as a safety check), then delete the file from the vector store
       if (updatedGroup.run.vectorStoreId && updatedGroup.run.fileId) {
-        await openai.beta.vectorStores.files.del(
+        await openai.vectorStores.files.del(
           updatedGroup.run.vectorStoreId,
           updatedGroup.run.fileId
         );

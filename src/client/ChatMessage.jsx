@@ -131,7 +131,7 @@ export const ChatMessage = React.memo(
                   }}
                 >
                   <Typography>
-                    {message.complete === false && message.text.length > 0 && (assistantText === '' || assistantText === undefined)  && (toolType === '' || toolType === undefined) && (
+                    {message.complete === false && message.text.length > 0 && (assistantText === '' || assistantText === undefined)  && (toolType === '' || toolType === undefined)  && (
                       <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.8rem' }}>
                         Predicting {tokens} Tokens
                       </Typography>
