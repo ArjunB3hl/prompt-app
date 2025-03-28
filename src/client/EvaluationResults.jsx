@@ -148,6 +148,14 @@ export function EvaluationResults() {
           description: "ROUGE-L metric comparison showing longest common subsequence matches",
           image: "/evaluation_results/ClaudeVGpt/rougeL_comparison_20250328_151248.png",
           date: "March 28, 2025"
+        },
+        {
+          id: 15,
+          category: "claudevsgpt",
+          title: "F1 Score Performance",
+          description: "F1 score comparison between Claude and GPT models across different prompting techniques",
+          image: "/evaluation_results/ClaudeVGpt/f1_score_comparison_20250328_151248.png",
+          date: "March 28, 2025"
         }
       ];
       
